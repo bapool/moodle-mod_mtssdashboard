@@ -22,8 +22,6 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Seconds of heartbeat silence before a RIMP/WEP edit lock is considered
  * abandoned (crashed tab, lost connection, etc.) and treated as available.
@@ -137,7 +135,8 @@ function mtssdashboard_supports($feature) {
 function mtssdashboard_get_coursemodule_info($coursemodule) {
     global $DB;
 
-    $record = $DB->get_record('mtssdashboard',
+    $record = $DB->get_record(
+        'mtssdashboard',
         ['id' => $coursemodule->instance],
         'id, name, intro, introformat'
     );
@@ -184,14 +183,19 @@ function mtssdashboard_get_coursemodule_info($coursemodule) {
         if ($inhs) {
             $dow = (int)date('N');
             if ($dow <= 3) {
-                $inturl = new moodle_url('/local/roomscheduler/hrattendance.php',
-                    ['courseid' => $coursemodule->course]);
+                $inturl = new moodle_url(
+                    '/local/roomscheduler/hrattendance.php',
+                    ['courseid' => $coursemodule->course]
+                );
             } else {
-                $inturl = new moodle_url('/local/roomscheduler/intattendance.php',
-                    ['courseid' => $coursemodule->course]);
+                $inturl = new moodle_url(
+                    '/local/roomscheduler/intattendance.php',
+                    ['courseid' => $coursemodule->course]
+                );
             }
             $info->content .= html_writer::div(
-                html_writer::link($inturl,
+                html_writer::link(
+                    $inturl,
                     '→ ' . get_string('gotointervention', 'local_roomscheduler'),
                     ['class' => 'small font-weight-bold text-primary']
                 ),
@@ -361,7 +365,7 @@ function mtssdashboard_get_course_level($categoryid, $levelcfg) {
         return 'hs'; // Default.
     }
 
-    // path is like /2/10/45 — extract all ancestor IDs including self.
+    // Path is like /2/10/45 — extract all ancestor IDs including self.
     $pathids = array_filter(explode('/', $cat->path));
 
     if (in_array((string)$levelcfg->es_category, $pathids)) {
@@ -480,7 +484,7 @@ function mtssdashboard_get_grades_data($students, $courseid, $courselevel, $leve
         'math'         => [],
         'english'      => [],
         'science'      => [],
-        'socialstudies'=> [],
+        'socialstudies' => [],
         'electives'    => [],
     ];
     $result->detail        = [];
@@ -501,7 +505,7 @@ function mtssdashboard_get_grades_data($students, $courseid, $courselevel, $leve
     if (empty($userids)) {
         return $result;
     }
-    list($insql, $inparams) = $DB->get_in_or_equal($userids, SQL_PARAMS_NAMED, 'uid');
+    [$insql, $inparams] = $DB->get_in_or_equal($userids, SQL_PARAMS_NAMED, 'uid');
     $students = $DB->get_records_sql(
         "SELECT u.id AS userid, u.firstname, u.lastname
            FROM {user} u
@@ -515,7 +519,7 @@ function mtssdashboard_get_grades_data($students, $courseid, $courselevel, $leve
         return $result;
     }
 
-    // ── Load grade letter scale from management course ────────────────────────
+    // Load grade letter scale from management course.
     $mgmtcourse = ($courselevel === 'ms')
         ? ((int) get_config('mod_mtssdashboard', 'ms_mgmt_course') ?: 54)
         : ((int) get_config('mod_mtssdashboard', 'hs_mgmt_course') ?: 53);
@@ -542,7 +546,7 @@ function mtssdashboard_get_grades_data($students, $courseid, $courselevel, $leve
         $result->scale = array_values($scale);
     }
 
-    // ── Build subject category ID sets from admin config ─────────────────────
+    // Build subject category ID sets from admin config.
     $prefix = ($courselevel === 'ms') ? 'ms' : 'hs';
 
     $catids = [];
@@ -558,8 +562,8 @@ function mtssdashboard_get_grades_data($students, $courseid, $courselevel, $leve
         $catids[$subj] = $ids;
     }
 
-    // ── Helper: convert percentage to letter using scale ──────────────────────
-    $pct_to_letter = function($pct) use (&$result) {
+    // Helper: convert percentage to letter using scale.
+    $pcttoletter = function ($pct) use (&$result) {
         foreach ($result->scale as $row) {
             if ($pct >= (float) $row->lowerboundary) {
                 return $row->letter;
@@ -568,14 +572,17 @@ function mtssdashboard_get_grades_data($students, $courseid, $courselevel, $leve
         return 'F';
     };
 
-    // ── Helper: classify a course by its category path ────────────────────────
-    $classify_course = function($categoryid) use ($catids, $DB) {
+    // Helper: classify a course by its category path.
+    $classifycourse = function ($categoryid) use ($catids, $DB) {
         static $catcache = [];
         if (isset($catcache[$categoryid])) {
             return $catcache[$categoryid];
         }
-        $cat = $DB->get_record('course_categories',
-            ['id' => $categoryid], 'id, path');
+        $cat = $DB->get_record(
+            'course_categories',
+            ['id' => $categoryid],
+            'id, path'
+        );
         if (!$cat) {
             $catcache[$categoryid] = 'electives';
             return 'electives';
@@ -583,8 +590,10 @@ function mtssdashboard_get_grades_data($students, $courseid, $courselevel, $leve
         $path = $cat->path;
         foreach (['math', 'english', 'science', 'socialstudies'] as $subj) {
             foreach ($catids[$subj] as $cid) {
-                if (strpos($path, '/' . $cid . '/') !== false
-                        || substr($path, -(strlen((string)$cid) + 1)) === '/' . $cid) {
+                if (
+                    strpos($path, '/' . $cid . '/') !== false
+                        || substr($path, -(strlen((string)$cid) + 1)) === '/' . $cid
+                ) {
                     $catcache[$categoryid] = $subj;
                     return $subj;
                 }
@@ -599,7 +608,7 @@ function mtssdashboard_get_grades_data($students, $courseid, $courselevel, $leve
     foreach ($students as $s) {
         $namemap[$s->userid] = $s->lastname . ', ' . $s->firstname;
     }
-    // ── Fetch grades for all students enrolled in this course ─────────────────
+    // Fetch grades for all students enrolled in this course.
     // Use passed $students (respects group filter) or fall back to all enrolled.
     if (!empty($students)) {
         $enrolledstudents = [];
@@ -650,25 +659,25 @@ function mtssdashboard_get_grades_data($students, $courseid, $courselevel, $leve
             $rows[] = $g;
         }
     }
-        // ── Split into this-course vs other courses ───────────────────────────────
-    $thiscourse_rows = [];
-    $other_rows      = [];
+        // Split into this-course vs other courses.
+    $thiscourserows = [];
+    $otherrows      = [];
 
     foreach ($rows as $row) {
         if ((int)$row->courseid === (int)$courseid) {
-            $thiscourse_rows[] = $row;
+            $thiscourserows[] = $row;
         } else {
-            $other_rows[] = $row;
+            $otherrows[] = $row;
         }
     }
 
-    // ── Process this course ───────────────────────────────────────────────────
-    if (!empty($thiscourse_rows)) {
+    // Process this course.
+    if (!empty($thiscourserows)) {
         $result->hasthiscourse = true;
-        foreach ($thiscourse_rows as $row) {
+        foreach ($thiscourserows as $row) {
             $grademax = (float)$row->grademax ?: 100;
             $pct      = round(((float)$row->finalgrade / $grademax) * 100, 2);
-            $letter   = $pct_to_letter($pct);
+            $letter   = $pcttoletter($pct);
             $result->thiscourse[] = [
                 'userid'     => $row->userid,
                 'name'       => $namemap[$row->userid] ?? '—',
@@ -680,12 +689,12 @@ function mtssdashboard_get_grades_data($students, $courseid, $courselevel, $leve
         }
     }
 
-    // ── Process other courses ─────────────────────────────────────────────────
-    foreach ($other_rows as $row) {
+    // Process other courses.
+    foreach ($otherrows as $row) {
         $grademax = (float)$row->grademax ?: 100;
         $pct      = round(((float)$row->finalgrade / $grademax) * 100, 2);
-        $letter   = $pct_to_letter($pct);
-        $subj     = $classify_course($row->categoryid);
+        $letter   = $pcttoletter($pct);
+        $subj     = $classifycourse($row->categoryid);
 
         $entry = [
             'userid'     => $row->userid,
@@ -703,11 +712,11 @@ function mtssdashboard_get_grades_data($students, $courseid, $courselevel, $leve
     // If this course had no grades, merge thiscourse rows into detail too
     // so the "all courses" summary includes everything.
     if (!$result->hasthiscourse) {
-        foreach ($thiscourse_rows as $row) {
+        foreach ($thiscourserows as $row) {
             $grademax = (float)$row->grademax ?: 100;
             $pct      = round(((float)$row->finalgrade / $grademax) * 100, 2);
-            $letter   = $pct_to_letter($pct);
-            $subj     = $classify_course($row->categoryid);
+            $letter   = $pcttoletter($pct);
+            $subj     = $classifycourse($row->categoryid);
             $entry = [
                 'userid'     => $row->userid,
                 'name'       => $namemap[$row->userid] ?? '—',
@@ -864,12 +873,12 @@ function stv_can_edit_warning_levels($course, $schoollevel) {
 function stv_format_threshold_text($metrickey, $min, $max) {
 
     // Strip trailing zeros from numeric values for cleaner display.
-    $fmt = function($n) {
+    $fmt = function ($n) {
         if ($n === null) {
             return null;
         }
         $s = (string) (float) $n;
-        // (float) drops unneeded trailing zeros automatically; cast then
+        // A (float) cast drops unneeded trailing zeros automatically; cast then
         // round to 2 places to avoid float drift like 20.000000001.
         $s = number_format((float) $n, 2, '.', '');
         $s = rtrim(rtrim($s, '0'), '.');
@@ -881,31 +890,31 @@ function stv_format_threshold_text($metrickey, $min, $max) {
 
     // Per-metric unit suffix and pluralization rules.
     $units = [
-        'total_hours_missed'     => ['hours',     'hours'],
-        'unexcused_hours_missed' => ['hours',     'hours'],
-        'office_incidents'       => ['incident',  'incidents'],
-        'course_failure_count'   => ['course',    'courses'],
-        'gpa'                    => ['',          ''],
-        'iready_ela_percentile'  => ['%',         '%'],
-        'iready_math_percentile' => ['%',         '%'],
-        'ela_fall_score'         => ['',          ''],
-        'ela_fall_pct'           => ['%ile',      '%ile'],
-        'ela_winter_score'       => ['',          ''],
-        'ela_winter_pct'         => ['%ile',      '%ile'],
-        'ela_spring_score'       => ['',          ''],
-        'ela_spring_pct'         => ['%ile',      '%ile'],
-        'math_fall_score'        => ['',          ''],
-        'math_fall_pct'          => ['%ile',      '%ile'],
-        'math_winter_score'      => ['',          ''],
-        'math_winter_pct'        => ['%ile',      '%ile'],
-        'math_spring_score'      => ['',          ''],
-        'math_spring_pct'        => ['%ile',      '%ile'],
+        'total_hours_missed'     => ['hours', 'hours'],
+        'unexcused_hours_missed' => ['hours', 'hours'],
+        'office_incidents'       => ['incident', 'incidents'],
+        'course_failure_count'   => ['course', 'courses'],
+        'gpa'                    => ['', ''],
+        'iready_ela_percentile'  => ['%', '%'],
+        'iready_math_percentile' => ['%', '%'],
+        'ela_fall_score'         => ['', ''],
+        'ela_fall_pct'           => ['%ile', '%ile'],
+        'ela_winter_score'       => ['', ''],
+        'ela_winter_pct'         => ['%ile', '%ile'],
+        'ela_spring_score'       => ['', ''],
+        'ela_spring_pct'         => ['%ile', '%ile'],
+        'math_fall_score'        => ['', ''],
+        'math_fall_pct'          => ['%ile', '%ile'],
+        'math_winter_score'      => ['', ''],
+        'math_winter_pct'        => ['%ile', '%ile'],
+        'math_spring_score'      => ['', ''],
+        'math_spring_pct'        => ['%ile', '%ile'],
         'ost_performance'        => ['low score', 'low scores'],
     ];
-    list($singular, $plural) = $units[$metrickey] ?? ['', ''];
+    [$singular, $plural] = $units[$metrickey] ?? ['', ''];
 
     // Helper to attach the right unit form to a single number.
-    $withunit = function($n, $isrange = false) use ($singular, $plural) {
+    $withunit = function ($n, $isrange = false) use ($singular, $plural) {
         if ($singular === '' && $plural === '') {
             return $n;
         }
@@ -991,7 +1000,7 @@ function stv_get_office_incidents_by_studentnumber(array $studentnumbers) {
         return [];
     }
 
-    list($insql, $inparams) = $DB->get_in_or_equal($clean, SQL_PARAMS_NAMED, 'sn');
+    [$insql, $inparams] = $DB->get_in_or_equal($clean, SQL_PARAMS_NAMED, 'sn');
 
     // NTdiscipline is externally managed (not registered in Moodle's XMLDB),
     // so reference it via the configured DB prefix rather than a {placeholder}.
@@ -1051,7 +1060,7 @@ function stv_get_attendance_by_studentnumber(array $studentnumbers) {
         return [];
     }
 
-    list($insql, $inparams) = $DB->get_in_or_equal($clean, SQL_PARAMS_NAMED, 'sn');
+    [$insql, $inparams] = $DB->get_in_or_equal($clean, SQL_PARAMS_NAMED, 'sn');
 
     // NTattendance is externally managed; reference via the configured prefix.
     global $CFG;
@@ -1084,7 +1093,8 @@ function stv_get_attendance_by_studentnumber(array $studentnumbers) {
  * Returns one row per course with the most recent grade_grades timemodified,
  * the teacher list, and the school-day count since that update.
  *
- * @param int $courseid  The management course ID (used to scope the school year).
+ * @param string $schoollevel 'ms' or 'hs' — selects the course category.
+ * @param array  $userids     Only courses where these users are enrolled (empty = all courses).
  * @return array Array of stdClass objects sorted descending by days_since.
  */
 function stv_get_grade_currency($schoollevel, array $userids = []) {
@@ -1106,7 +1116,7 @@ function stv_get_grade_currency($schoollevel, array $userids = []) {
         return [];
     }
 
-    list($catsql, $catparams) = $DB->get_in_or_equal($catids, SQL_PARAMS_NAMED, 'cat');
+    [$catsql, $catparams] = $DB->get_in_or_equal($catids, SQL_PARAMS_NAMED, 'cat');
 
     // If a group is selected, limit to courses where at least one group member is enrolled.
     $groupjoin  = '';
@@ -1114,13 +1124,13 @@ function stv_get_grade_currency($schoollevel, array $userids = []) {
     $groupparams = [];
     if (!empty($userids)) {
         $clean = array_map('intval', $userids);
-        list($usersql, $groupparams) = $DB->get_in_or_equal($clean, SQL_PARAMS_NAMED, 'usr');
+        [$usersql, $groupparams] = $DB->get_in_or_equal($clean, SQL_PARAMS_NAMED, 'usr');
         $groupjoin  = "JOIN {user_enrolments} ue ON ue.userid $usersql
               JOIN {enrol} en             ON en.id = ue.enrolid
                                          AND en.courseid = c.id";
         $groupwhere = "AND ue.userid $usersql";
         // Need params twice — once for join, once for where.
-        list($usersql2, $groupparams2) = $DB->get_in_or_equal($clean, SQL_PARAMS_NAMED, 'usr2');
+        [$usersql2, $groupparams2] = $DB->get_in_or_equal($clean, SQL_PARAMS_NAMED, 'usr2');
         $groupjoin  = "JOIN {user_enrolments} ue ON ue.userid $usersql
               JOIN {enrol} en             ON en.id = ue.enrolid
                                          AND en.courseid = c.id";
@@ -1154,7 +1164,7 @@ function stv_get_grade_currency($schoollevel, array $userids = []) {
     // Fetch teachers for each course in one pass.
     // Role shortname 'editingteacher' is the standard Moodle teacher role.
     $courseids = array_keys($rows);
-    list($insql, $inparams) = $DB->get_in_or_equal($courseids, SQL_PARAMS_NAMED, 'cid');
+    [$insql, $inparams] = $DB->get_in_or_equal($courseids, SQL_PARAMS_NAMED, 'cid');
 
     $teachersql = "SELECT ctx.instanceid AS courseid,
                           u.firstname,
@@ -1233,7 +1243,7 @@ function stv_get_failed_courses_by_userid(array $userids) {
         return [];
     }
 
-    list($insql, $inparams) = $DB->get_in_or_equal($clean, SQL_PARAMS_NAMED, 'uid');
+    [$insql, $inparams] = $DB->get_in_or_equal($clean, SQL_PARAMS_NAMED, 'uid');
 
     // Pull every "real" course final grade for these users, with each course's
     // own letter scale (or the site default fallback). We resolve the letter
@@ -1361,7 +1371,7 @@ function stv_get_gpa_by_userid(array $userids, $schoollevel) {
         return [];
     }
 
-    list($insql, $inparams) = $DB->get_in_or_equal($clean, SQL_PARAMS_NAMED, 'uid');
+    [$insql, $inparams] = $DB->get_in_or_equal($clean, SQL_PARAMS_NAMED, 'uid');
 
     $sql = "SELECT gg.id AS gid,
                    gg.userid,
@@ -1501,11 +1511,11 @@ function stv_get_low_ost_by_ssid(array $ssids) {
 
     // Subject-area grouping mirrors the State Testing chart families.
     // Only used for the non-HS "most recent per area" rule below.
-    $code_to_area = [
-        'R'    => 'ela',  'ELA'  => 'ela',  'ELA2' => 'ela',
+    $codetoarea = [
+        'R'    => 'ela', 'ELA'  => 'ela', 'ELA2' => 'ela',
         'M'    => 'math', 'MTH1' => 'math', 'ALG1' => 'math', 'GEOM' => 'math',
-        'S'    => 'sci',  'BIOL' => 'sci',
-        'C'    => 'ss',   'HIST' => 'ss',   'GOVM' => 'ss',
+        'S'    => 'sci', 'BIOL' => 'sci',
+        'C'    => 'ss', 'HIST' => 'ss', 'GOVM' => 'ss',
     ];
 
     $currentyear = (int) get_config('mod_mtssdashboard', 'gradyear');
@@ -1523,14 +1533,14 @@ function stv_get_low_ost_by_ssid(array $ssids) {
     ]);
     $hspassscore = $passingrow ? (float) $passingrow->threshold_min : null;
 
-    list($insql, $inparams) = $DB->get_in_or_equal($clean, SQL_PARAMS_NAMED, 'sid');
+    [$insql, $inparams] = $DB->get_in_or_equal($clean, SQL_PARAMS_NAMED, 'sid');
 
     // Pull all results — no year filter at the SQL level. We apply the right
     // rule per row in PHP based on grade_level:
-    //   - HS results: always counted (no time limit, no most-recent filter),
-    //                 but a "Basic" with score >= hs passing score is excluded.
-    //   - non-HS results: only the most recent within the 2-year window per
-    //                     subject area is counted.
+    // - HS results: always counted (no time limit, no most-recent filter),
+    // but a "Basic" with score >= hs passing score is excluded.
+    // - non-HS results: only the most recent within the 2-year window per
+    // subject area is counted.
     global $CFG;
     $statetable = $CFG->prefix . 'NTstatetesting';
     $sql = "SELECT id, ssid, subject_code, year, proficiency_level, grade_level,
@@ -1545,7 +1555,7 @@ function stv_get_low_ost_by_ssid(array $ssids) {
         return [];
     }
 
-    $kept_nonhs = [];
+    $keptnonhs = [];
     $map = [];
 
     foreach ($rows as $r) {
@@ -1558,9 +1568,11 @@ function stv_get_low_ost_by_ssid(array $ssids) {
             // those subjects use the score as the "passed for graduation"
             // threshold even when the proficiency label is "Basic".
             $iscompetencytest = in_array($r->subject_code, ['ALG1', 'MTH1', 'ELA2'], true);
-            if ($islow && $iscompetencytest && $hspassscore !== null
+            if (
+                $islow && $iscompetencytest && $hspassscore !== null
                     && $r->proficiency_level === 'Basic'
-                    && (float) $r->score >= $hspassscore) {
+                    && (float) $r->score >= $hspassscore
+            ) {
                 continue; // Passed for graduation despite the Basic label.
             }
             if ($islow) {
@@ -1573,15 +1585,15 @@ function stv_get_low_ost_by_ssid(array $ssids) {
         if ((int) $r->year < $minyear) {
             continue;
         }
-        $area = $code_to_area[$r->subject_code] ?? null;
+        $area = $codetoarea[$r->subject_code] ?? null;
         if ($area === null) {
             continue;
         }
         $key = $r->ssid . '|' . $area;
-        if (isset($kept_nonhs[$key])) {
+        if (isset($keptnonhs[$key])) {
             continue;
         }
-        $kept_nonhs[$key] = true;
+        $keptnonhs[$key] = true;
         if ($islow) {
             $map[$r->ssid] = ($map[$r->ssid] ?? 0) + 1;
         }
@@ -1650,10 +1662,10 @@ function stv_get_band_color($schoollevel, $metrickey, $value) {
         $max = ($band->threshold_max !== null) ? (float) $band->threshold_max : null;
 
         // Bound check: NULL min = no lower bound, NULL max = no upper bound.
-        $passes_min = ($min === null) || ($val >= $min);
-        $passes_max = ($max === null) || ($val <= $max);
+        $passesmin = ($min === null) || ($val >= $min);
+        $passesmax = ($max === null) || ($val <= $max);
 
-        if ($passes_min && $passes_max) {
+        if ($passesmin && $passesmax) {
             return $band->color;
         }
     }
@@ -1701,7 +1713,7 @@ function stv_compute_risk_level($flagcount, $schoollevel = 'hs') {
         ], 'sortorder ASC');
 
         // Build threshold map: color => min flag count.
-        $thresholds = ['low' => 1, 'moderate' => 2, 'extreme' => 4]; // defaults
+        $thresholds = ['low' => 1, 'moderate' => 2, 'extreme' => 4]; // Defaults.
         foreach ($rows as $r) {
             if (in_array($r->color, ['low', 'moderate', 'extreme'], true)) {
                 $thresholds[$r->color] = (int) $r->threshold_min;
@@ -1786,7 +1798,7 @@ function stv_get_iready_percentile_by_studentnumber(array $studentnumbers, $tabl
         return [];
     }
 
-    list($insql, $inparams) = $DB->get_in_or_equal($clean, SQL_PARAMS_NAMED, 'sn');
+    [$insql, $inparams] = $DB->get_in_or_equal($clean, SQL_PARAMS_NAMED, 'sn');
 
     // Current school year only. The iReady tables store AcademicYear as
     // "YYYY-YYYY" (e.g. "2025-2026"), so we build that string from the
@@ -1875,7 +1887,7 @@ function stv_get_iready_diagnostics_by_studentnumber(array $studentnumbers) {
     }
     $academicyear = ($gradyear - 1) . '-' . $gradyear;
 
-    list($insql, $inparams) = $DB->get_in_or_equal($clean, SQL_PARAMS_NAMED, 'sn');
+    [$insql, $inparams] = $DB->get_in_or_equal($clean, SQL_PARAMS_NAMED, 'sn');
     $inparams['ay'] = $academicyear;
 
     // Initialise result map with null values for all students.
@@ -1892,7 +1904,7 @@ function stv_get_iready_diagnostics_by_studentnumber(array $studentnumbers) {
     }
 
     // Helper to query one subject table and populate the map.
-    $fetch = function($tablebase, $prefix) use ($DB, $CFG, $insql, $inparams, &$map) {
+    $fetch = function ($tablebase, $prefix) use ($DB, $CFG, $insql, $inparams, &$map) {
         $table = $CFG->prefix . $tablebase;
         $sql = "SELECT StudentID AS studentnumber,
                        NormingWindow AS normingwindow,
@@ -1931,7 +1943,7 @@ function stv_get_iready_diagnostics_by_studentnumber(array $studentnumbers) {
         $rs->close();
     };
 
-    $fetch('NTireadyela',  'ela');
+    $fetch('NTireadyela', 'ela');
     $fetch('NTireadymath', 'math');
 
     return $map;
@@ -1963,9 +1975,14 @@ function stv_get_rimp_by_studentnumber(array $studentnumbers) {
         return [];
     }
 
-    list($insql, $inparams) = $DB->get_in_or_equal($clean, SQL_PARAMS_NAMED, 'sn');
-    $rs = $DB->get_recordset_select('mtssdashboard_rimp',
-        "studentnumber $insql", $inparams, '', 'studentnumber, status');
+    [$insql, $inparams] = $DB->get_in_or_equal($clean, SQL_PARAMS_NAMED, 'sn');
+    $rs = $DB->get_recordset_select(
+        'mtssdashboard_rimp',
+        "studentnumber $insql",
+        $inparams,
+        '',
+        'studentnumber, status'
+    );
     $map = [];
     foreach ($rs as $r) {
         $map[(int)$r->studentnumber] = 1;
@@ -1994,7 +2011,7 @@ function stv_get_student_course_grades($userid, $courselevel) {
         return $result;
     }
 
-    // ── Grade letter scale from management course (same source as Grades tab).
+    // Grade letter scale from management course (same source as Grades tab).
     $mgmtcourse = ($courselevel === 'ms')
         ? ((int) get_config('mod_mtssdashboard', 'ms_mgmt_course') ?: 54)
         : ((int) get_config('mod_mtssdashboard', 'hs_mgmt_course') ?: 53);
@@ -2019,7 +2036,7 @@ function stv_get_student_course_grades($userid, $courselevel) {
         ));
     }
 
-    $pct_to_letter = function($pct) use ($scale) {
+    $pcttoletter = function ($pct) use ($scale) {
         foreach ($scale as $row) {
             if ($pct >= (float) $row->lowerboundary) {
                 return $row->letter;
@@ -2028,7 +2045,7 @@ function stv_get_student_course_grades($userid, $courselevel) {
         return 'F';
     };
 
-    // ── Course + final grade for every course this student is enrolled in
+    // Course + final grade for every course this student is enrolled in.
     // and has a final grade recorded for.
     $gradesql = "SELECT c.id AS courseid,
                         c.fullname AS coursename,
@@ -2047,7 +2064,7 @@ function stv_get_student_course_grades($userid, $courselevel) {
     foreach ($rows as $row) {
         $grademax = (float) $row->grademax ?: 100;
         $pct      = round(((float) $row->finalgrade / $grademax) * 100, 2);
-        $letter   = $pct_to_letter($pct);
+        $letter   = $pcttoletter($pct);
 
         // Teacher for this course — editingteacher role at course context.
         // Only one is shown: whoever was assigned to the role first
@@ -2087,7 +2104,7 @@ function stv_get_student_course_grades($userid, $courselevel) {
  */
 function stv_count_weekdays(DateTime $from, DateTime $to) {
 
-    // ── Build set of school-break dates to skip ────────────────────────────
+    // Build set of school-break dates to skip.
     // We exclude the same windows for every year that falls within the range.
     $excluded = [];
 
@@ -2095,7 +2112,6 @@ function stv_count_weekdays(DateTime $from, DateTime $to) {
     $endyear   = (int) $to->format('Y');
 
     for ($yr = $startyear; $yr <= $endyear; $yr++) {
-
         // Last two weeks of December: Dec 18 – Dec 31.
         $d = new DateTime($yr . '-12-18');
         $last = new DateTime($yr . '-12-31');
@@ -2125,7 +2141,7 @@ function stv_count_weekdays(DateTime $from, DateTime $to) {
                 $d->modify('+1 day');
             }
         }
-        // $d is now the 4th Thursday — step back to Monday of that week.
+        // At this point $d is the 4th Thursday — step back to Monday of that week.
         $monday = clone $d;
         $monday->modify('monday this week');
         $friday = clone $monday;
@@ -2136,7 +2152,7 @@ function stv_count_weekdays(DateTime $from, DateTime $to) {
             $w->modify('+1 day');
         }
     }
-    // ── Count weekdays, skipping excluded dates ────────────────────────────
+    // Count weekdays, skipping excluded dates.
     $days = 0;
     $current = clone $from;
     // Normalise both to midnight so day comparison is clean.
@@ -2199,7 +2215,7 @@ function stv_get_iready_days_since_lesson(array $studentnumbers) {
     $today = new DateTime('today');
     $afteroct1 = ($today >= $oct1);
 
-    list($insql, $inparams) = $DB->get_in_or_equal($clean, SQL_PARAMS_NAMED, 'sn');
+    [$insql, $inparams] = $DB->get_in_or_equal($clean, SQL_PARAMS_NAMED, 'sn');
     $inparams['ay'] = $academicyear;
 
     // Initialise map — null means "not yet flaggable".
@@ -2216,7 +2232,7 @@ function stv_get_iready_days_since_lesson(array $studentnumbers) {
 
     // Helper: fetch most recent CompletionDate per student from one table
     // and update $latest if newer than what we already have.
-    $fetch = function($tablebase, $subject) use ($DB, $CFG, $insql, $inparams, &$latest) {
+    $fetch = function ($tablebase, $subject) use ($DB, $CFG, $insql, $inparams, &$latest) {
         $table = $CFG->prefix . $tablebase;
         $sql = "SELECT StudentID AS studentnumber,
                        MAX(CompletionDate) AS lastdate
@@ -2241,10 +2257,10 @@ function stv_get_iready_days_since_lesson(array $studentnumbers) {
     };
 
     // Query all four tables.
-    $fetch('NTireadyelaprogress',    'ela');
+    $fetch('NTireadyelaprogress', 'ela');
     $fetch('NTireadyproelaprogress', 'ela');
-    $fetch('NTireadymathprogress',   'math');
-    $fetch('NTireadypromathprogress','math');
+    $fetch('NTireadymathprogress', 'math');
+    $fetch('NTireadypromathprogress', 'math');
 
     // Now compute weekdays from latest date to today.
     foreach ($clean as $sn) {
@@ -2382,8 +2398,12 @@ function mtssdashboard_school_name_for_grade($gradecode, $fallback) {
  */
 function mtssdashboard_rimp_clean_school($raw) {
     $name = trim((string)$raw);
-    if (stripos($name, 'NT ') === 0) { $name = substr($name, 3); }
-    if ($name === strtoupper($name)) { $name = ucwords(strtolower($name)); }
+    if (stripos($name, 'NT ') === 0) {
+        $name = substr($name, 3);
+    }
+    if ($name === strtoupper($name)) {
+        $name = ucwords(strtolower($name));
+    }
     return $name;
 }
 
@@ -2397,9 +2417,13 @@ function mtssdashboard_rimp_clean_school($raw) {
  * @return string HTML <li> markup, or '' if not checked.
  */
 function mtssdashboard_rimp_cb($checked, $label, $desc = '') {
-    if (!$checked) { return ''; }
+    if (!$checked) {
+        return '';
+    }
     $out = '<li><strong>' . htmlspecialchars($label, ENT_QUOTES, 'UTF-8') . '</strong>';
-    if ($desc) { $out .= ': ' . htmlspecialchars($desc, ENT_QUOTES, 'UTF-8'); }
+    if ($desc) {
+        $out .= ': ' . htmlspecialchars($desc, ENT_QUOTES, 'UTF-8');
+    }
     $out .= '</li>';
     return $out;
 }
@@ -2420,71 +2444,89 @@ function mtssdashboard_rimp_cb($checked, $label, $desc = '') {
 function mtssdashboard_render_rimp_report($studentnumber, $schoollevel) {
     global $DB, $CFG;
 
-    $student = $DB->get_record_select('user',
-        "idnumber = :sn AND deleted = 0", ['sn' => $studentnumber],
-        'id, firstname, middlename, lastname, picture, imagealt, email');
+    $student = $DB->get_record_select(
+        'user',
+        "idnumber = :sn AND deleted = 0",
+        ['sn' => $studentnumber],
+        'id, firstname, middlename, lastname, picture, imagealt, email'
+    );
     if (!$student) {
         throw new moodle_exception('invalidstudent', 'mod_mtssdashboard');
     }
 
-    $rimp = $DB->get_record_select('mtssdashboard_rimp',
-        'studentnumber = :sn', ['sn' => $studentnumber]);
+    $rimp = $DB->get_record_select(
+        'mtssdashboard_rimp',
+        'studentnumber = :sn',
+        ['sn' => $studentnumber]
+    );
     if (!$rimp) {
         throw new moodle_exception('rimp_not_found', 'mod_mtssdashboard');
     }
 
-    $contacts_table = $CFG->prefix . 'contacts';
+    $contactstable = $CFG->prefix . 'contacts';
     $contact = $DB->get_record_sql(
         "SELECT c.GradeLevelCode AS gradelevel, c.Gender AS gender,
                 c.Birthdate AS birthdate, c.StateStudentID AS ssid
-           FROM {$contacts_table} c WHERE c.StudentNumber = :sn",
-        ['sn' => $studentnumber]);
+           FROM {$contactstable} c WHERE c.StudentNumber = :sn",
+        ['sn' => $studentnumber]
+    );
 
-    $import = $DB->get_record('mtssdashboard_rimp_import',
-        ['studentnumber' => $studentnumber, 'schoollevel' => $schoollevel]);
+    $import = $DB->get_record(
+        'mtssdashboard_rimp_import',
+        ['studentnumber' => $studentnumber, 'schoollevel' => $schoollevel]
+    );
 
-    // ── Decode JSON ───────────────────────────────────────────────────────────
-    $goals    = !empty($rimp->goals)    ? json_decode($rimp->goals,    true) : [];
+    // Decode JSON.
+    $goals    = !empty($rimp->goals) ? json_decode($rimp->goals, true) : [];
     $supports = !empty($rimp->supports) ? json_decode($rimp->supports, true) : [];
-    if (!is_array($goals))    $goals    = [];
-    if (!is_array($supports)) $supports = [];
+    if (!is_array($goals)) {
+        $goals    = [];
+    }
+    if (!is_array($supports)) {
+        $supports = [];
+    }
 
-    $school_name = mtssdashboard_school_name_for_grade(
+    $schoolname = mtssdashboard_school_name_for_grade(
         $contact->gradelevel ?? '',
         mtssdashboard_rimp_clean_school(
-            !empty($import->current_school) ? $import->current_school : 'National Trail Local Schools'));
+            !empty($import->current_school) ? $import->current_school : 'National Trail Local Schools'
+        )
+    );
 
-    $current_grade = !empty($contact->gradelevel) ? $contact->gradelevel
+    $currentgrade = !empty($contact->gradelevel) ? $contact->gradelevel
         : (!empty($import->current_grade) ? $import->current_grade : '');
 
-    $gender_raw    = !empty($import->gender) ? $import->gender
+    $genderraw    = !empty($import->gender) ? $import->gender
         : (!empty($contact->gender) ? $contact->gender : '');
-    $gender_display = ($gender_raw === 'M' || strtolower($gender_raw) === 'male') ? 'Male'
-        : (($gender_raw === 'F' || strtolower($gender_raw) === 'female') ? 'Female' : $gender_raw);
+    $genderdisplay = ($genderraw === 'M' || strtolower($genderraw) === 'male') ? 'Male'
+        : (($genderraw === 'F' || strtolower($genderraw) === 'female') ? 'Female' : $genderraw);
 
     $birthdate    = !empty($contact->birthdate) ? $contact->birthdate : '';
-    $eff_date_str = !empty($rimp->rimp_effective_date) ? date('m/d/Y', $rimp->rimp_effective_date) : '';
+    $effdatestr = !empty($rimp->rimp_effective_date) ? date('m/d/Y', $rimp->rimp_effective_date) : '';
 
-    $status_text  = ((int)$rimp->status === 0) ? 'DRAFT' : '';
-    $status_color = '#856404';
-    $status_bg    = '#fff3cd';
+    $statustext  = ((int)$rimp->status === 0) ? 'DRAFT' : '';
+    $statuscolor = '#856404';
+    $statusbg    = '#fff3cd';
 
     $subtitle = ($schoollevel === 'ms' || $schoollevel === 'hs')
         ? 'Ohio (RIMP) Reading Improvement Monitoring Plan — MS/HS'
         : 'Ohio (RIMP) Reading Improvement Monitoring Plan';
 
-    $user_context = context_user::instance($student->id);
-    $pic_url = !empty($student->picture)
-        ? $CFG->wwwroot . '/pluginfile.php/' . $user_context->id
+    $usercontext = context_user::instance($student->id);
+    $picurl = !empty($student->picture)
+        ? $CFG->wwwroot . '/pluginfile.php/' . $usercontext->id
             . '/user/icon/boost/f1?rev=' . $student->picture
         : $CFG->wwwroot . '/pix/u/f1.png';
 
-    // ── Goal definitions — same for all levels ────────────────────────────────
-    $goal_defs = [
+    // Goal definitions — same for all levels.
+    $goaldefs = [
         'phonemic'      => ['label' => 'Phonemic Awareness',
-            'desc' => 'Noticing, thinking about and working with the smallest units of spoken language, which are called phonemes. For example, young children hear "dog" but not "duh"-"aw"-"guh".'],
+            'desc' => 'Noticing, thinking about and working with the smallest units of spoken language, which are ' .
+                'called phonemes. For example, young children hear "dog" but not "duh"-"aw"-"guh".'],
         'phonics'       => ['label' => 'Phonics',
-            'desc' => 'Knowing relationships between sounds (phonemes) and letters (graphemes). For example, when a child is taught the sounds for the letters t, p, a and c, they can start to build up words like: "tap", "pat", and "cat".'],
+            'desc' => 'Knowing relationships between sounds (phonemes) and letters (graphemes). For example, when a ' .
+                'child is taught the sounds for the letters t, p, a and c, they can start to build up words like: ' .
+                '"tap", "pat", and "cat".'],
         'vocabulary'    => ['label' => 'Vocabulary',
             'desc' => 'Understanding the meaning of words we speak, hear, read, and write.'],
         'fluency'       => ['label' => 'Reading Fluency',
@@ -2493,8 +2535,8 @@ function mtssdashboard_render_rimp_report($studentnumber, $schoollevel) {
             'desc' => 'Gaining meaning from text.'],
     ];
 
-    // ── Support definitions — same for all levels ─────────────────────────────
-    $support_defs = [
+    // Support definitions — same for all levels.
+    $supportdefs = [
         'writing_found'   => 'Explicit Intervention in Writing (Foundational/Transcription)',
         'writing_comp'    => 'Explicit Intervention in Writing (Composition Skills)',
         'phon_awareness'  => 'Explicit Intervention in Phonemic Awareness',
@@ -2508,34 +2550,40 @@ function mtssdashboard_render_rimp_report($studentnumber, $schoollevel) {
         'multimodal'      => 'Multi-Modal Approach to Structured Literacy',
     ];
 
-    $monitored_options = ['Classroom Teacher', 'Title 1 Teacher', 'Intervention Specialist', 'Other'];
+    $monitoredoptions = ['Classroom Teacher', 'Title 1 Teacher', 'Intervention Specialist', 'Other'];
 
     // MS monitoring checkboxes.
-    $mon_check_options = [
+    $moncheckoptions = [
         'UFLR- after every two lessons',
         'Phonics for Reading- a review at the end of each lesson and a check up at the end of each unit',
         'Rewards- a review after every two lessons and a check up at the end of each unit',
     ];
-    $saved_mon_checks = [];
-    if (!empty($rimp->monitoring_assessment)
-            && ($schoollevel === 'ms' || $schoollevel === 'hs')) {
-        $saved_mon_checks = array_map('trim', explode("\n", $rimp->monitoring_assessment));
+    $savedmonchecks = [];
+    if (
+        !empty($rimp->monitoring_assessment)
+            && ($schoollevel === 'ms' || $schoollevel === 'hs')
+    ) {
+        $savedmonchecks = array_map('trim', explode("\n", $rimp->monitoring_assessment));
     }
 
-    $grade3_options = [
+    $grade3options = [
         'Not applicable at this time',
         'The student reached the promotion score of 700 on the Ohio State Test for grade 3 English language arts.',
         'The student reached the promotion score on an approved alternative reading assessment given by the district.',
-        'A parent/guardian, in consultation with the school, can request that their child be promoted to fourth grade even if they do not reach the promotion score. In this case, the student will continue to be supported with a RIMP and provided with intensive instruction, until they are able to read at grade level.',
+        'A parent/guardian, in consultation with the school, can request that their child be promoted to fourth grade ' .
+            'even if they do not reach the promotion score. In this case, the student will continue to be supported ' .
+            'with a RIMP and provided with intensive instruction, until they are able to read at grade level.',
     ];
 
     header('Content-Type: text/html; charset=UTF-8');
-    ?>
-<!DOCTYPE html>
+
+    echo '<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Ohio RIMP &mdash; <?php echo htmlspecialchars(fullname($student), ENT_QUOTES, 'UTF-8'); ?></title>
+<title>Ohio RIMP &mdash; ';
+    echo htmlspecialchars(fullname($student), ENT_QUOTES, 'UTF-8');
+    echo '</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: Arial, sans-serif; font-size: 10.5pt; color: #000;
@@ -2553,7 +2601,11 @@ function mtssdashboard_render_rimp_report($studentnumber, $schoollevel) {
   .student-header .school { font-size: 10pt; }
   .status-badge { margin-left: auto; padding: 0.2em 0.8em; border: 1px solid #000;
                   font-weight: bold; font-size: 10pt;
-                  background: <?php echo $status_bg; ?>; color: <?php echo $status_color; ?>; }
+                  background: ';
+    echo $statusbg;
+    echo '; color: ';
+    echo $statuscolor;
+    echo '; }
   .meta-table { width: 100%; border-collapse: collapse; margin-bottom: 0.5em; }
   .meta-table th, .meta-table td { padding: 0.2em 0.5em; font-size: 10pt; }
   .meta-table th { font-weight: bold; width: 25%; }
@@ -2581,61 +2633,120 @@ function mtssdashboard_render_rimp_report($studentnumber, $schoollevel) {
 
 <button class="print-btn" onclick="window.print()">Print / Save as PDF</button>
 
-<h1><?php echo htmlspecialchars($school_name, ENT_QUOTES, 'UTF-8'); ?></h1>
-<h2><?php echo htmlspecialchars($subtitle,     ENT_QUOTES, 'UTF-8'); ?></h2>
+<h1>';
+    echo htmlspecialchars($schoolname, ENT_QUOTES, 'UTF-8');
+    echo '</h1>
+<h2>';
+    echo htmlspecialchars($subtitle, ENT_QUOTES, 'UTF-8');
+    echo '</h2>
 
 <div class="student-header">
-  <img src="<?php echo s($pic_url); ?>" alt="<?php echo s(fullname($student)); ?>"
-       onerror="this.src='<?php echo s($CFG->wwwroot . '/pix/u/f1.png'); ?>'">
+  <img src="';
+    echo s($picurl);
+    echo '" alt="';
+    echo s(fullname($student));
+    echo '"
+       onerror="this.src=\'';
+    echo s($CFG->wwwroot . '/pix/u/f1.png');
+    echo '\'">
   <div>
-    <div class="name"><?php echo s(fullname($student)); ?></div>
-    <div class="school"><?php echo s($school_name); ?></div>
+    <div class="name">';
+    echo s(fullname($student));
+    echo '</div>
+    <div class="school">';
+    echo s($schoolname);
+    echo '</div>
   </div>
-  <?php if ($status_text !== ''): ?>
-  <div class="status-badge"><?php echo s($status_text); ?></div>
-  <?php endif; ?>
-</div>
+  ';
+    if ($statustext !== '') :
+        echo '  <div class="status-badge">';
+        echo s($statustext);
+        echo '</div>
+  ';
+    endif;
+    echo '</div>
 
 <table class="meta-table">
   <tr>
-    <th>Student ID</th>   <td><?php echo s((string)$studentnumber); ?></td>
-    <th>Date of Birth</th><td><?php echo s($birthdate); ?></td>
+    <th>Student ID</th>   <td>';
+    echo s((string)$studentnumber);
+    echo '</td>
+    <th>Date of Birth</th><td>';
+    echo s($birthdate);
+    echo '</td>
   </tr>
   <tr>
-    <th>Current Grade</th><td><?php echo s((string)$current_grade); ?></td>
-    <th>Gender</th>        <td><?php echo s($gender_display); ?></td>
+    <th>Current Grade</th><td>';
+    echo s((string)$currentgrade);
+    echo '</td>
+    <th>Gender</th>        <td>';
+    echo s($genderdisplay);
+    echo '</td>
   </tr>
 </table>
 
 <div class="section">
   <h3>What is a Reading Improvement and Monitoring Plan?</h3>
-  <p class="intro-text">This plan allows us as teachers and parents to work together to understand the student&rsquo;s reading difficulties and outline reading instruction and support. The instructional services selected for a student rely on the student&rsquo;s data, and ideas and resources from the student&rsquo;s teacher and parent or guardian.</p>
-  <p class="intro-text">Research shows that a child&rsquo;s reading abilities in the early grades is a strong predictor of reading comprehension in later grades (Cunningham &amp; Stanovich, 1997; Duncan et al., 2007; Stanley et al., 2018; Storch &amp; Whitehurst, 2002) and that children with early reading difficulties may continue to experience increasing difficulties over time if not addressed (Morgan et al., 2008; Morgan et al., 2011; Partanen &amp; Siegel, 2014).</p>
-  <p class="intro-text">Under Ohio law (ORC 3313.608), districts and schools must create a Reading Improvement and Monitoring Plan (RIMP) for a student who is not on-track (reading below grade level) within 60 days of receiving the reading diagnostic results. The district must involve the student&rsquo;s parent or guardian and the classroom teacher in developing the plan.</p>
-  <p class="intro-text">For students in grade 4 and beyond, districts and schools are required to develop and implement RIMPs for the following students:</p>
-  <p class="intro-text">1) Students who did not meet the promotion score on Ohio&rsquo;s State Test for grade 3 English language arts but the student&rsquo;s parent or guardian, in consultation with the student&rsquo;s reading teacher and principal, requested the student be promoted to grade 4. These same students must receive 90 minutes of daily reading instruction that includes intensive intervention.</p>
-  <?php if ($schoollevel === 'es'): ?>
-  <p class="intro-text">2) RIMPs must continue for students who had a RIMP in grade 3 and still are not reading at grade level (700 or higher on Ohio&rsquo;s State Test for grade 3 English language arts).</p>
-  <?php else: ?>
-  <p class="intro-text">2) RIMPs must continue for students who are not reading at grade level (700 or higher on Ohio&rsquo;s State Test for grade 3 and above English language arts).</p>
-  <?php endif; ?>
-  <p class="intro-text">The RIMP continues throughout the student&rsquo;s K-12 academic career until the student is reading on grade level (proficient on Ohio&rsquo;s State Test for English language arts).</p>
+  <p class="intro-text">This plan allows us as teachers and parents to work together to understand the ' .
+        'student&rsquo;s reading difficulties and outline reading instruction and support. The instructional services ' .
+        'selected for a student rely on the student&rsquo;s data, and ideas and resources from the student&rsquo;s ' .
+        'teacher and parent or guardian.</p>
+  <p class="intro-text">Research shows that a child&rsquo;s reading abilities in the early grades is a strong ' .
+        'predictor of reading comprehension in later grades (Cunningham &amp; Stanovich, 1997; Duncan et al., 2007; ' .
+        'Stanley et al., 2018; Storch &amp; Whitehurst, 2002) and that children with early reading difficulties may ' .
+        'continue to experience increasing difficulties over time if not addressed (Morgan et al., 2008; Morgan et ' .
+        'al., 2011; Partanen &amp; Siegel, 2014).</p>
+  <p class="intro-text">Under Ohio law (ORC 3313.608), districts and schools must create a Reading Improvement and ' .
+        'Monitoring Plan (RIMP) for a student who is not on-track (reading below grade level) within 60 days of ' .
+        'receiving the reading diagnostic results. The district must involve the student&rsquo;s parent or guardian ' .
+        'and the classroom teacher in developing the plan.</p>
+  <p class="intro-text">For students in grade 4 and beyond, districts and schools are required to develop and ' .
+        'implement RIMPs for the following students:</p>
+  <p class="intro-text">1) Students who did not meet the promotion score on Ohio&rsquo;s State Test for grade 3 ' .
+        'English language arts but the student&rsquo;s parent or guardian, in consultation with the student&rsquo;s ' .
+        'reading teacher and principal, requested the student be promoted to grade 4. These same students must ' .
+        'receive 90 minutes of daily reading instruction that includes intensive intervention.</p>
+  ';
+    if ($schoollevel === 'es') :
+        echo '  <p class="intro-text">2) RIMPs must continue for students who had a RIMP in grade 3 and still are not ' .
+            'reading at grade level (700 or higher on Ohio&rsquo;s State Test for grade 3 English language arts).</p>
+  ';
+    else :
+        echo '  <p class="intro-text">2) RIMPs must continue for students who are not reading at grade level (700 or ' .
+            'higher on Ohio&rsquo;s State Test for grade 3 and above English language arts).</p>
+  ';
+    endif;
+    echo '  <p class="intro-text">The RIMP continues throughout the student&rsquo;s K-12 academic career until the ' .
+        'student is reading on grade level (proficient on Ohio&rsquo;s State Test for English language arts).</p>
 </div>
 
 <div class="section">
-  <?php if ($schoollevel === 'es'): ?>
-  <div class="assessment-box">Assessment Data: RIMP placement in K-3 is determined by their performance on beginning of the year iReady diagnostic assessment. In grades 4-6 is determined by their performance on the ELA Ohio State Test at the end of the previous school year.</div>
+  ';
+    if ($schoollevel === 'es') :
+        echo '  <div class="assessment-box">Assessment Data: RIMP placement in K-3 is determined by their performance ' .
+            'on beginning of the year iReady diagnostic assessment. In grades 4-6 is determined by their performance ' .
+            'on the ELA Ohio State Test at the end of the previous school year.</div>
   <table class="bench-table">
-    <tr><td>Kindergarten:</td><td><?php echo get_string('rimp_k_ontrack', 'mtssdashboard'); ?></td></tr>
-    <tr><td>Grade 1:</td>     <td><?php echo get_string('rimp_grade1_ontrack', 'mtssdashboard'); ?></td></tr>
-    <tr><td>Grade 2:</td>     <td><?php echo get_string('rimp_grade2_ontrack', 'mtssdashboard'); ?></td></tr>
-    <tr><td>Grade 3:</td>     <td><?php echo get_string('rimp_grade3_ontrack', 'mtssdashboard'); ?></td></tr>
+    <tr><td>Kindergarten:</td><td>';
+        echo get_string('rimp_k_ontrack', 'mtssdashboard');
+        echo '</td></tr>
+    <tr><td>Grade 1:</td>     <td>';
+        echo get_string('rimp_grade1_ontrack', 'mtssdashboard');
+        echo '</td></tr>
+    <tr><td>Grade 2:</td>     <td>';
+        echo get_string('rimp_grade2_ontrack', 'mtssdashboard');
+        echo '</td></tr>
+    <tr><td>Grade 3:</td>     <td>';
+        echo get_string('rimp_grade3_ontrack', 'mtssdashboard');
+        echo '</td></tr>
     <tr><td>Grade 4:</td>     <td>Third Grade OST Reading Scale Score below 700</td></tr>
     <tr><td>Grade 5:</td>     <td>Fourth Grade OST Reading Scale Score below 700</td></tr>
     <tr><td>Grade 6:</td>     <td>Fifth Grade OST Reading Scale Score below 700</td></tr>
   </table>
-  <?php else: ?>
-  <div class="assessment-box">Assessment Data: In grades 4-6 is determined by their performance on the ELA Ohio State Test at the end of the previous school year.</div>
+  ';
+    else :
+        echo '  <div class="assessment-box">Assessment Data: In grades 4-6 is determined by their performance on the ' .
+            'ELA Ohio State Test at the end of the previous school year.</div>
   <table class="bench-table">
     <tr><td>Grade 4:</td><td>Third Grade OST Reading Scale Score below 700</td></tr>
     <tr><td>Grade 5:</td><td>Fourth Grade OST Reading Scale Score below 700</td></tr>
@@ -2643,125 +2754,187 @@ function mtssdashboard_render_rimp_report($studentnumber, $schoollevel) {
     <tr><td>Grade 7:</td><td>Sixth Grade OST Reading Scale Score below 700</td></tr>
     <tr><td>Grade 8:</td><td>Seventh Grade OST Reading Scale Score below 700</td></tr>
   </table>
-  <?php endif; ?>
-  <table style="width:100%; border-collapse:collapse; margin-top:0.4em; font-size:10pt;">
+  ';
+    endif;
+    echo '  <table style="width:100%; border-collapse:collapse; margin-top:0.4em; font-size:10pt;">
     <tr>
       <td style="white-space:nowrap; font-weight:bold; padding:0.2em 0.5em 0.2em 0; width:1%;">Student Score:</td>
-      <td style="padding:0.2em 1.5em 0.2em 0;"><?php echo !is_null($rimp->student_score) ? s((string)$rimp->student_score) : ''; ?></td>
-      <td style="white-space:nowrap; font-weight:bold; padding:0.2em 0.5em 0.2em 0; width:1%;">Student Assessment Status:</td>
-      <td style="padding:0.2em 1.5em 0.2em 0;"><?php echo s($rimp->assessment_status ?? ''); ?></td>
-      <td style="white-space:nowrap; font-weight:bold; padding:0.2em 0.5em 0.2em 0; width:1%;">RIMP Effective Date:</td>
-      <td style="padding:0.2em 0;"><?php echo s($eff_date_str); ?></td>
+      <td style="padding:0.2em 1.5em 0.2em 0;">';
+    echo !is_null($rimp->student_score) ? s((string)$rimp->student_score) : '';
+    echo '</td>
+      <td style="white-space:nowrap; font-weight:bold; padding:0.2em 0.5em 0.2em 0; width:1%;">Student Assessment ' .
+        'Status:</td>
+      <td style="padding:0.2em 1.5em 0.2em 0;">';
+    echo s($rimp->assessment_status ?? '');
+    echo '</td>
+      <td style="white-space:nowrap; font-weight:bold; padding:0.2em 0.5em 0.2em 0; width:1%;">RIMP Effective ' .
+        'Date:</td>
+      <td style="padding:0.2em 0;">';
+    echo s($effdatestr);
+    echo '</td>
     </tr>
   </table>
 </div>
 
 <div class="section">
   <h3>Services and Supports</h3>
-  <p class="intro-text">Specific interventions and resources provided to help a student improve their reading skills. This aligns with the high dosage tutoring requirements from the state of Ohio.</p>
+  <p class="intro-text">Specific interventions and resources provided to help a student improve their reading skills. ' .
+        'This aligns with the high dosage tutoring requirements from the state of Ohio.</p>
 
   <h3>This plan was created for this student with the goal of improving:</h3>
   <ul style="margin:0.3em 0 0.3em 1.5em; font-size:10pt;">
-    <?php foreach ($goal_defs as $key => $g): ?>
-      <?php echo mtssdashboard_rimp_cb(in_array($key, $goals), $g['label'], $g['desc']); ?>
-    <?php endforeach; ?>
-  </ul>
+    ';
+    foreach ($goaldefs as $key => $g) :
+        echo '      ';
+        echo mtssdashboard_rimp_cb(in_array($key, $goals), $g['label'], $g['desc']);
+        echo '    ';
+    endforeach;
+    echo '  </ul>
 
   <h3>Instructional Supports:</h3>
   <ul style="margin:0.3em 0 0.3em 1.5em; font-size:10pt;">
-    <?php foreach ($support_defs as $key => $label): ?>
-      <?php echo mtssdashboard_rimp_cb(in_array($key, $supports), $label); ?>
-    <?php endforeach; ?>
-  </ul>
+    ';
+    foreach ($supportdefs as $key => $label) :
+        echo '      ';
+        echo mtssdashboard_rimp_cb(in_array($key, $supports), $label);
+        echo '    ';
+    endforeach;
+    echo '  </ul>
 
   <table style="width:100%; border-collapse:collapse; margin-top:0.4em; font-size:10pt;">
     <tr>
-      <td style="white-space:nowrap; font-weight:bold; padding:0.2em 0.5em 0.2em 0; width:1%;">Number of Days Per Week:</td>
-      <td style="padding:0.2em 2em 0.2em 0;"><?php echo s($rimp->days_per_week ?? ''); ?></td>
-      <td style="white-space:nowrap; font-weight:bold; padding:0.2em 0.5em 0.2em 0; width:1%;">Number of Minutes Per Week:</td>
-      <td style="padding:0.2em 0;"><?php echo s(!is_null($rimp->minutes_per_week) ? (string)$rimp->minutes_per_week : ''); ?></td>
+      <td style="white-space:nowrap; font-weight:bold; padding:0.2em 0.5em 0.2em 0; width:1%;">Number of Days Per ' .
+        'Week:</td>
+      <td style="padding:0.2em 2em 0.2em 0;">';
+    echo s($rimp->days_per_week ?? '');
+    echo '</td>
+      <td style="white-space:nowrap; font-weight:bold; padding:0.2em 0.5em 0.2em 0; width:1%;">Number of Minutes Per ' .
+        'Week:</td>
+      <td style="padding:0.2em 0;">';
+    echo s(!is_null($rimp->minutes_per_week) ? (string)$rimp->minutes_per_week : '');
+    echo '</td>
     </tr>
   </table>
 </div>
 
 <div class="section">
   <h3>Plans for Monitoring Student Success</h3>
-  <?php if ($schoollevel === 'es'): ?>
-  <table class="meta-table">
+  ';
+    if ($schoollevel === 'es') :
+        echo '  <table class="meta-table">
     <tr><th>Assessment used for Progress Monitoring</th>
-        <td><?php echo nl2br(s($rimp->monitoring_assessment ?? '')); ?></td></tr>
+        <td>';
+        echo nl2br(s($rimp->monitoring_assessment ?? ''));
+        echo '</td></tr>
     <tr><th>Frequency of Monitoring:</th>
-        <td><?php echo s($rimp->monitoring_frequency ?? ''); ?></td></tr>
+        <td>';
+        echo s($rimp->monitoring_frequency ?? '');
+        echo '</td></tr>
   </table>
-  <?php else: ?>
-  <h3>Assessment used for Progress Monitoring and Frequency:</h3>
+  ';
+    else :
+        echo '  <h3>Assessment used for Progress Monitoring and Frequency:</h3>
   <ul style="margin:0.3em 0 0.3em 1.5em; font-size:10pt;">
-    <?php foreach ($mon_check_options as $opt): ?>
-      <?php echo mtssdashboard_rimp_cb(in_array($opt, $saved_mon_checks), $opt); ?>
-    <?php endforeach; ?>
-  </ul>
-  <?php endif; ?>
-
+    ';
+        foreach ($moncheckoptions as $opt) :
+            echo '      ';
+            echo mtssdashboard_rimp_cb(in_array($opt, $savedmonchecks), $opt);
+            echo '    ';
+        endforeach;
+        echo '  </ul>
+  ';
+    endif;
+    echo '
   <p style="font-size:10pt; margin:0.3em 0;"><br><strong>Intervention Plan Monitored By:</strong>
-  <?php echo s($rimp->monitored_by ?? ''); ?></p>
+  ';
+    echo s($rimp->monitored_by ?? '');
+    echo '</p>
 </div>
 
-<?php if ($schoollevel === 'es'): ?>
-<div class="section">
+';
+    if ($schoollevel === 'es') :
+        echo '<div class="section">
   <h3>Ohio&rsquo;s Third Grade Reading Guarantee (Third Grade Students Only)</h3>
-  <p class="intro-text">The Third Grade Reading Guarantee requires Ohio&rsquo;s third grade students to demonstrate reading proficiency by the end of third grade.</p>
+  <p class="intro-text">The Third Grade Reading Guarantee requires Ohio&rsquo;s third grade students to demonstrate ' .
+            'reading proficiency by the end of third grade.</p>
   <ul style="margin:0.3em 0 0.3em 1.5em; font-size:10pt;">
-    <?php foreach ($grade3_options as $opt): ?>
-      <?php echo mtssdashboard_rimp_cb($rimp->grade3_guarantee === $opt, $opt); ?>
-    <?php endforeach; ?>
-  </ul>
+    ';
+        foreach ($grade3options as $opt) :
+            echo '      ';
+            echo mtssdashboard_rimp_cb($rimp->grade3_guarantee === $opt, $opt);
+            echo '    ';
+        endforeach;
+        echo '  </ul>
 </div>
-<?php endif; ?>
-
+';
+    endif;
+    echo '
 <div class="section">
   <h3>Signatures</h3>
-  <?php if ($schoollevel === 'es'): ?>
-  <div class="sig-wrap">
+  ';
+    if ($schoollevel === 'es') :
+        echo '  <div class="sig-wrap">
     <div class="sig-block">
       <div class="sig-label">Parent/Guardian: ___________________________</div>
-      <div class="sig-line"><?php echo nl2br(s($rimp->sig_parent ?? '')); ?></div>
+      <div class="sig-line">';
+        echo nl2br(s($rimp->sig_parent ?? ''));
+        echo '</div>
     </div>
     <div class="sig-block">
       <div class="sig-label">Current Teacher: ___________________________</div>
-      <div class="sig-line"><?php echo nl2br(s($rimp->sig_teacher ?? '')); ?></div>
+      <div class="sig-line">';
+        echo nl2br(s($rimp->sig_teacher ?? ''));
+        echo '</div>
     </div>
   </div>
-  <?php else: ?>
-  <div class="sig-wrap">
+  ';
+    else :
+        echo '  <div class="sig-wrap">
     <div class="sig-block">
       <div class="sig-label">Parent/Guardian: ___________________________</div>
-      <div class="sig-line"><?php echo nl2br(s($rimp->sig_parent ?? '')); ?></div>
+      <div class="sig-line">';
+        echo nl2br(s($rimp->sig_parent ?? ''));
+        echo '</div>
     </div>
   </div>
   <div class="sig-wrap" style="margin-top:0.5em;">
     <div class="sig-block">
       <div class="sig-label">English language arts Teacher: ___________________________</div>
-      <div class="sig-line"><?php echo nl2br(s($rimp->sig_ela_teacher ?? '')); ?></div>
+      <div class="sig-line">';
+        echo nl2br(s($rimp->sig_ela_teacher ?? ''));
+        echo '</div>
     </div>
     <div class="sig-block">
       <div class="sig-label">Intervention/Title Teacher: ___________________________</div>
-      <div class="sig-line"><?php echo nl2br(s($rimp->sig_intervention ?? '')); ?></div>
+      <div class="sig-line">';
+        echo nl2br(s($rimp->sig_intervention ?? ''));
+        echo '</div>
     </div>
   </div>
-  <?php endif; ?>
-</div>
+  ';
+    endif;
+    echo '</div>
 
 <div class="doc-footer">
-  <?php echo s(fullname($student)); ?> (<?php echo s((string)$studentnumber); ?>)
-  &mdash; Generated <?php echo date('m/d/Y'); ?>
-  <?php if ($status_text !== ''): ?>&mdash; <?php echo s($status_text); ?><?php endif; ?>
-</div>
+  ';
+    echo s(fullname($student));
+    echo ' (';
+    echo s((string)$studentnumber);
+    echo ')
+  &mdash; Generated ';
+    echo date('m/d/Y');
+    echo '  ';
+    if ($statustext !== '') :
+        echo '&mdash; ';
+        echo s($statustext);
+    endif;
+    echo '</div>
 
 <button class="print-btn" onclick="window.print()" style="margin-top:1em;">Print / Save as PDF</button>
 
 </body>
 </html>
-<?php
+';
 }
 
 /**
@@ -2772,7 +2945,9 @@ function mtssdashboard_render_rimp_report($studentnumber, $schoollevel) {
  * @return array Decoded array, or [] if empty/invalid.
  */
 function mtssdashboard_wep_decode($json) {
-    if (empty($json)) { return []; }
+    if (empty($json)) {
+        return [];
+    }
     $d = json_decode($json, true);
     return is_array($d) ? $d : [];
 }
@@ -2786,23 +2961,31 @@ function mtssdashboard_wep_decode($json) {
  */
 function mtssdashboard_wep_clean_school($raw) {
     $name = trim((string)$raw);
-    if ($name === '') { return 'National Trail Local Schools'; }
-    if (stripos($name, 'NT ') === 0) { $name = substr($name, 3); }
-    if ($name === strtoupper($name)) { $name = ucwords(strtolower($name)); }
+    if ($name === '') {
+        return 'National Trail Local Schools';
+    }
+    if (stripos($name, 'NT ') === 0) {
+        $name = substr($name, 3);
+    }
+    if ($name === strtoupper($name)) {
+        $name = ucwords(strtolower($name));
+    }
     return $name;
 }
 
 /**
  * Render only the checked items from a label set as WEP checkbox table rows.
  *
- * @param array $all_labels   Map of key => label for every possible option.
- * @param array $checked_keys Keys that are actually checked.
+ * @param array $alllabels   Map of key => label for every possible option.
+ * @param array $checkedkeys Keys that are actually checked.
  * @return string HTML <tr> rows, or a "None selected" row if none checked.
  */
-function mtssdashboard_wep_checked_list($all_labels, $checked_keys) {
+function mtssdashboard_wep_checked_list($alllabels, $checkedkeys) {
     $out = '';
-    foreach ($all_labels as $key => $label) {
-        if (!in_array($key, $checked_keys, true)) { continue; }
+    foreach ($alllabels as $key => $label) {
+        if (!in_array($key, $checkedkeys, true)) {
+            continue;
+        }
         $out .= '<tr><td class="cb-cell">&#9746;</td>'
               . '<td>' . htmlspecialchars($label, ENT_QUOTES, 'UTF-8') . '</td></tr>';
     }
@@ -2847,82 +3030,93 @@ function mtssdashboard_wep_field($label, $value, $lines = 4) {
 function mtssdashboard_render_wep_report($studentnumber, $schoollevel) {
     global $DB, $CFG;
 
-    $student = $DB->get_record_select('user',
-        "idnumber = :sn AND deleted = 0", ['sn' => $studentnumber],
-        'id, firstname, middlename, lastname, picture, imagealt, email');
+    $student = $DB->get_record_select(
+        'user',
+        "idnumber = :sn AND deleted = 0",
+        ['sn' => $studentnumber],
+        'id, firstname, middlename, lastname, picture, imagealt, email'
+    );
     if (!$student) {
         throw new moodle_exception('invalidstudent', 'mod_mtssdashboard');
     }
 
-    $wep = $DB->get_record_select('mtssdashboard_wep',
-        'studentnumber = :sn', ['sn' => $studentnumber]);
+    $wep = $DB->get_record_select(
+        'mtssdashboard_wep',
+        'studentnumber = :sn',
+        ['sn' => $studentnumber]
+    );
     if (!$wep) {
         throw new moodle_exception('wep_not_found', 'mod_mtssdashboard');
     }
 
-    // ── Fetch contact / import info ───────────────────────────────────────────
-    $contacts_table = $CFG->prefix . 'contacts';
+    // Fetch contact / import info.
+    $contactstable = $CFG->prefix . 'contacts';
     $contact = $DB->get_record_sql(
         "SELECT c.GradeLevelCode AS gradelevel, c.Gender AS gender,
                 c.Birthdate AS birthdate, c.StateStudentID AS ssid
-           FROM {$contacts_table} c WHERE c.StudentNumber = :sn",
-        ['sn' => $studentnumber]);
+           FROM {$contactstable} c WHERE c.StudentNumber = :sn",
+        ['sn' => $studentnumber]
+    );
 
     // Normalize schoollevel for import table lookup (stored as 'mshs' for ms and hs).
-    $import_level = ($schoollevel === 'es') ? 'es' : 'mshs';
+    $importlevel = ($schoollevel === 'es') ? 'es' : 'mshs';
 
-    $import = $DB->get_record('mtssdashboard_wep_import',
-        ['studentnumber' => $studentnumber, 'schoollevel' => $import_level]);
+    $import = $DB->get_record(
+        'mtssdashboard_wep_import',
+        ['studentnumber' => $studentnumber, 'schoollevel' => $importlevel]
+    );
 
-    // ── Decode JSON arrays ────────────────────────────────────────────────────
-    $id_areas      = mtssdashboard_wep_decode($wep->identification_areas);
-    $svc_setting   = mtssdashboard_wep_decode($wep->service_setting);
-    $prog_measures = mtssdashboard_wep_decode($wep->progress_measures);
+    // Decode JSON arrays.
+    $idareas      = mtssdashboard_wep_decode($wep->identification_areas);
+    $svcsetting   = mtssdashboard_wep_decode($wep->service_setting);
+    $progmeasures = mtssdashboard_wep_decode($wep->progress_measures);
     $personnel     = mtssdashboard_wep_decode($wep->personnel);
 
-    // ── Convenience: is an identification area checked? ──────────────────────
-    $id_checked = function($key) use ($id_areas) {
-        return in_array($key, $id_areas, true);
+    // Convenience: is an identification area checked?
+    $idchecked = function ($key) use ($idareas) {
+        return in_array($key, $idareas, true);
     };
 
     // Superior Cognitive / Creative → goals in ALL academic areas.
-    $all_areas = $id_checked('superior_cognitive') || $id_checked('superior_creative');
-    $show_reading  = $all_areas || $id_checked('reading_writing');
-    $show_math     = $all_areas || $id_checked('mathematics');
-    $show_science  = ($schoollevel !== 'es') && ($all_areas || $id_checked('science'));
-    $show_ss       = ($schoollevel !== 'es') && ($all_areas || $id_checked('social_studies'));
+    $allareas = $idchecked('superior_cognitive') || $idchecked('superior_creative');
+    $showreading  = $allareas || $idchecked('reading_writing');
+    $showmath     = $allareas || $idchecked('mathematics');
+    $showscience  = ($schoollevel !== 'es') && ($allareas || $idchecked('science'));
+    $showss       = ($schoollevel !== 'es') && ($allareas || $idchecked('social_studies'));
 
-    $school_name = mtssdashboard_school_name_for_grade(
+    $schoolname = mtssdashboard_school_name_for_grade(
         $contact->gradelevel ?? '',
         mtssdashboard_wep_clean_school(
-            !empty($import->current_school) ? $import->current_school : 'National Trail Local Schools'));
+            !empty($import->current_school) ? $import->current_school : 'National Trail Local Schools'
+        )
+    );
 
-    $current_grade = !empty($contact->gradelevel) ? $contact->gradelevel
+    $currentgrade = !empty($contact->gradelevel) ? $contact->gradelevel
         : (!empty($import->current_grade) ? $import->current_grade : '');
 
-    $gender_raw     = !empty($import->gender) ? $import->gender
+    $genderraw     = !empty($import->gender) ? $import->gender
         : (!empty($contact->gender) ? $contact->gender : '');
-    $gender_display = ($gender_raw === 'M' || strtolower($gender_raw) === 'male') ? 'Male'
-        : (($gender_raw === 'F' || strtolower($gender_raw) === 'female') ? 'Female' : $gender_raw);
+    $genderdisplay = ($genderraw === 'M' || strtolower($genderraw) === 'male') ? 'Male'
+        : (($genderraw === 'F' || strtolower($genderraw) === 'female') ? 'Female' : $genderraw);
 
     $birthdate       = !empty($contact->birthdate) ? $contact->birthdate : '';
-    $review_date_str = !empty($wep->wep_review_date) ? date('m/d/Y', $wep->wep_review_date) : '';
+    $reviewdatestr = !empty($wep->wep_review_date) ? date('m/d/Y', $wep->wep_review_date) : '';
 
-    $status_text  = ((int)$wep->status === 0) ? 'DRAFT' : '';
-    $status_color = '#856404';
-    $status_bg    = '#fff3cd';
+    $statustext  = ((int)$wep->status === 0) ? 'DRAFT' : '';
+    $statuscolor = '#856404';
+    $statusbg    = '#fff3cd';
 
-    $page_title = 'Written Education Plan';
+    $pagetitle = 'Written Education Plan';
 
     // Student photo URL.
-    $user_context = context_user::instance($student->id);
-    $pic_url = !empty($student->picture)
-        ? $CFG->wwwroot . '/pluginfile.php/' . $user_context->id
+    $usercontext = context_user::instance($student->id);
+    $picurl = !empty($student->picture)
+        ? $CFG->wwwroot . '/pluginfile.php/' . $usercontext->id
             . '/user/icon/boost/f1?rev=' . $student->picture
         : $CFG->wwwroot . '/pix/u/f1.png';
 
-    // ── Option label maps ─────────────────────────────────────────────────────
-    $id_area_labels = [
+    // Option label maps.
+    $idarealabels = [
         'superior_cognitive' => 'Superior Cognitive Ability',
         'superior_creative'  => 'Superior Creative Thinking Ability',
         'reading_writing'    => 'Reading/Writing',
@@ -2932,12 +3126,12 @@ function mtssdashboard_render_wep_report($studentnumber, $schoollevel) {
     ];
 
     if ($schoollevel === 'es') {
-        $svc_labels = [
+        $svclabels = [
             'cluster_es' => 'Cluster Grouping (HIVE time)',
             'other'      => 'Other',
         ];
     } else {
-        $svc_labels = [
+        $svclabels = [
             'cluster_mshs'   => 'Cluster Grouping (205062)',
             'acceleration'   => 'Acceleration (205052)',
             'college_credit' => 'College Credit Plus (205070)',
@@ -2945,7 +3139,7 @@ function mtssdashboard_render_wep_report($studentnumber, $schoollevel) {
         ];
     }
 
-    $progress_labels = [
+    $progresslabels = [
         'observations'  => 'Observations/ Checklists',
         'projects'      => 'Projects',
         'benchmarks'    => 'Benchmarks',
@@ -2954,18 +3148,22 @@ function mtssdashboard_render_wep_report($studentnumber, $schoollevel) {
         'other'         => 'Other',
     ];
 
-    $personnel_labels = [
+    $personnellabels = [
         'gen_ed' => 'General Education Teacher',
     ];
 
     header('Content-Type: text/html; charset=UTF-8');
-    ?>
-<!DOCTYPE html>
+
+    echo '<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title><?php echo htmlspecialchars($page_title, ENT_QUOTES, 'UTF-8'); ?> &mdash;
-       <?php echo htmlspecialchars(fullname($student), ENT_QUOTES, 'UTF-8'); ?></title>
+<title>';
+    echo htmlspecialchars($pagetitle, ENT_QUOTES, 'UTF-8');
+    echo ' &mdash;
+       ';
+    echo htmlspecialchars(fullname($student), ENT_QUOTES, 'UTF-8');
+    echo '</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: Arial, sans-serif; font-size: 10.5pt; color: #000;
@@ -2984,7 +3182,11 @@ function mtssdashboard_render_wep_report($studentnumber, $schoollevel) {
   .student-header .school { font-size: 10pt; }
   .status-badge { margin-left: auto; padding: 0.2em 0.8em; border: 1px solid #000;
                   font-weight: bold; font-size: 10pt;
-                  background: <?php echo $status_bg; ?>; color: <?php echo $status_color; ?>; }
+                  background: ';
+    echo $statusbg;
+    echo '; color: ';
+    echo $statuscolor;
+    echo '; }
   .meta-table { width: 100%; border-collapse: collapse; margin-bottom: 0.5em; font-size: 10pt; }
   .meta-table th { font-weight: bold; text-align: left; white-space: nowrap;
                    padding: 0.2em 0.4em; vertical-align: top; }
@@ -3024,142 +3226,252 @@ function mtssdashboard_render_wep_report($studentnumber, $schoollevel) {
 <button class="print-btn" onclick="window.print()">Print / Save as PDF</button>
 
 <!-- RIMP-style header: school name + subtitle -->
-<h1><?php echo htmlspecialchars($school_name, ENT_QUOTES, 'UTF-8'); ?></h1>
-<h2><?php echo htmlspecialchars($page_title, ENT_QUOTES, 'UTF-8'); ?></h2>
+<h1>';
+    echo htmlspecialchars($schoolname, ENT_QUOTES, 'UTF-8');
+    echo '</h1>
+<h2>';
+    echo htmlspecialchars($pagetitle, ENT_QUOTES, 'UTF-8');
+    echo '</h2>
 
 <!-- Student card matching RIMP layout -->
 <div class="student-header">
-  <img src="<?php echo s($pic_url); ?>"
-       alt="<?php echo s(fullname($student)); ?>"
-       onerror="this.src='<?php echo s($CFG->wwwroot . '/pix/u/f1.png'); ?>'">
+  <img src="';
+    echo s($picurl);
+    echo '"
+       alt="';
+    echo s(fullname($student));
+    echo '"
+       onerror="this.src=\'';
+    echo s($CFG->wwwroot . '/pix/u/f1.png');
+    echo '\'">
   <div>
-    <div class="name"><?php echo htmlspecialchars(fullname($student), ENT_QUOTES, 'UTF-8'); ?></div>
-    <div class="school"><?php echo htmlspecialchars($school_name, ENT_QUOTES, 'UTF-8'); ?></div>
+    <div class="name">';
+    echo htmlspecialchars(fullname($student), ENT_QUOTES, 'UTF-8');
+    echo '</div>
+    <div class="school">';
+    echo htmlspecialchars($schoolname, ENT_QUOTES, 'UTF-8');
+    echo '</div>
   </div>
-  <?php if ($status_text !== ''): ?>
-  <div class="status-badge"><?php echo htmlspecialchars($status_text, ENT_QUOTES, 'UTF-8'); ?></div>
-  <?php endif; ?>
-</div>
+  ';
+    if ($statustext !== '') :
+        echo '  <div class="status-badge">';
+        echo htmlspecialchars($statustext, ENT_QUOTES, 'UTF-8');
+        echo '</div>
+  ';
+    endif;
+    echo '</div>
 
 <table class="meta-table" style="margin-bottom:0.3em;">
   <tr>
     <th class="label-wrap">Student ID</th>
-    <td><?php echo htmlspecialchars((string)$studentnumber, ENT_QUOTES, 'UTF-8'); ?></td>
+    <td>';
+    echo htmlspecialchars((string)$studentnumber, ENT_QUOTES, 'UTF-8');
+    echo '</td>
     <th>Date of Birth</th>
-    <td><?php echo htmlspecialchars($birthdate, ENT_QUOTES, 'UTF-8'); ?></td>
+    <td>';
+    echo htmlspecialchars($birthdate, ENT_QUOTES, 'UTF-8');
+    echo '</td>
     <th>Current Grade</th>
-    <td><?php echo htmlspecialchars((string)$current_grade, ENT_QUOTES, 'UTF-8'); ?></td>
+    <td>';
+    echo htmlspecialchars((string)$currentgrade, ENT_QUOTES, 'UTF-8');
+    echo '</td>
     <th>Gender</th>
-    <td><?php echo htmlspecialchars($gender_display, ENT_QUOTES, 'UTF-8'); ?></td>
+    <td>';
+    echo htmlspecialchars($genderdisplay, ENT_QUOTES, 'UTF-8');
+    echo '</td>
   </tr>
   <tr>
-    <th class="label-wrap"><?php echo htmlspecialchars(get_string('wep_schoolyear', 'mod_mtssdashboard'), ENT_QUOTES, 'UTF-8'); ?></th>
-    <td><?php echo htmlspecialchars($wep->schoolyear ?? '', ENT_QUOTES, 'UTF-8'); ?></td>
-    <th><?php echo htmlspecialchars(get_string('wep_review_date', 'mod_mtssdashboard'), ENT_QUOTES, 'UTF-8'); ?></th>
-    <td><?php echo htmlspecialchars($review_date_str, ENT_QUOTES, 'UTF-8'); ?></td>
+    <th class="label-wrap">';
+    echo htmlspecialchars(get_string('wep_schoolyear', 'mod_mtssdashboard'), ENT_QUOTES, 'UTF-8');
+    echo '</th>
+    <td>';
+    echo htmlspecialchars($wep->schoolyear ?? '', ENT_QUOTES, 'UTF-8');
+    echo '</td>
+    <th>';
+    echo htmlspecialchars(get_string('wep_review_date', 'mod_mtssdashboard'), ENT_QUOTES, 'UTF-8');
+    echo '</th>
+    <td>';
+    echo htmlspecialchars($reviewdatestr, ENT_QUOTES, 'UTF-8');
+    echo '</td>
     <td colspan="4"></td>
   </tr>
 </table>
 
 <!-- Area(s) of Identification — checked items only -->
 <div class="section">
-  <div class="section-title"><?php echo htmlspecialchars(get_string('wep_section_identification', 'mod_mtssdashboard'), ENT_QUOTES, 'UTF-8'); ?></div>
+  <div class="section-title">';
+    echo htmlspecialchars(get_string('wep_section_identification', 'mod_mtssdashboard'), ENT_QUOTES, 'UTF-8');
+    echo '</div>
   <table class="cb-table">
-    <?php echo mtssdashboard_wep_checked_list($id_area_labels, $id_areas); ?>
-  </table>
+    ';
+    echo mtssdashboard_wep_checked_list($idarealabels, $idareas);
+    echo '  </table>
 </div>
 
 <!-- Intro text -->
 <div class="section" style="border-top:none; margin-top:0.5em;">
-  <p class="intro-text"><?php echo htmlspecialchars(get_string('wep_section_intro_text', 'mod_mtssdashboard'), ENT_QUOTES, 'UTF-8'); ?></p>
-  <p class="intro-footer"><?php echo htmlspecialchars(get_string('wep_section_intro_footer', 'mod_mtssdashboard'), ENT_QUOTES, 'UTF-8'); ?></p>
+  <p class="intro-text">';
+    echo htmlspecialchars(get_string('wep_section_intro_text', 'mod_mtssdashboard'), ENT_QUOTES, 'UTF-8');
+    echo '</p>
+  <p class="intro-footer">';
+    echo htmlspecialchars(get_string('wep_section_intro_footer', 'mod_mtssdashboard'), ENT_QUOTES, 'UTF-8');
+    echo '</p>
 </div>
 
 <!-- Service Setting — checked items only -->
 <div class="section">
-  <div class="section-title"><?php echo htmlspecialchars(get_string('wep_section_service', 'mod_mtssdashboard'), ENT_QUOTES, 'UTF-8'); ?></div>
+  <div class="section-title">';
+    echo htmlspecialchars(get_string('wep_section_service', 'mod_mtssdashboard'), ENT_QUOTES, 'UTF-8');
+    echo '</div>
   <table class="cb-table">
-    <?php echo mtssdashboard_wep_checked_list($svc_labels, $svc_setting); ?>
-  </table>
+    ';
+    echo mtssdashboard_wep_checked_list($svclabels, $svcsetting);
+    echo '  </table>
 </div>
 
 <!-- Student Progress Measures — checked items only -->
 <div class="section">
-  <div class="section-title"><?php echo htmlspecialchars(get_string('wep_section_progress_measures', 'mod_mtssdashboard'), ENT_QUOTES, 'UTF-8'); ?></div>
+  <div class="section-title">';
+    echo htmlspecialchars(get_string('wep_section_progress_measures', 'mod_mtssdashboard'), ENT_QUOTES, 'UTF-8');
+    echo '</div>
   <table class="cb-table">
-    <?php echo mtssdashboard_wep_checked_list($progress_labels, $prog_measures); ?>
-  </table>
+    ';
+    echo mtssdashboard_wep_checked_list($progresslabels, $progmeasures);
+    echo '  </table>
 </div>
 
 <!-- Personnel — checked items only -->
 <div class="section">
-  <div class="section-title"><?php echo htmlspecialchars(get_string('wep_section_personnel', 'mod_mtssdashboard'), ENT_QUOTES, 'UTF-8'); ?></div>
+  <div class="section-title">';
+    echo htmlspecialchars(get_string('wep_section_personnel', 'mod_mtssdashboard'), ENT_QUOTES, 'UTF-8');
+    echo '</div>
   <table class="cb-table">
-    <?php echo mtssdashboard_wep_checked_list($personnel_labels, $personnel); ?>
-  </table>
+    ';
+    echo mtssdashboard_wep_checked_list($personnellabels, $personnel);
+    echo '  </table>
 </div>
 
 <!-- Goals and Progress — grouped by subject, shown only if area is checked -->
 <div class="section">
 
-  <?php if ($show_reading): ?>
-    <div class="subj-heading"><?php echo htmlspecialchars(get_string('wep_id_reading_writing', 'mod_mtssdashboard'), ENT_QUOTES, 'UTF-8'); ?></div>
-    <?php echo mtssdashboard_wep_field(get_string('wep_goal_reading_writing', 'mod_mtssdashboard'), $wep->goal_reading_writing ?? ''); ?>
-    <?php echo mtssdashboard_wep_field(get_string('wep_midyear_reading',      'mod_mtssdashboard'), $wep->midyear_reading    ?? '', 3); ?>
-    <?php echo mtssdashboard_wep_field(get_string('wep_endofyear_reading',    'mod_mtssdashboard'), $wep->endofyear_reading  ?? '', 3); ?>
-  <?php endif; ?>
-
-  <?php if ($show_math): ?>
-    <div class="subj-heading"><?php echo htmlspecialchars(get_string('wep_id_mathematics', 'mod_mtssdashboard'), ENT_QUOTES, 'UTF-8'); ?></div>
-    <?php echo mtssdashboard_wep_field(get_string('wep_goal_mathematics',      'mod_mtssdashboard'), $wep->goal_mathematics      ?? ''); ?>
-    <?php echo mtssdashboard_wep_field(get_string('wep_midyear_mathematics',   'mod_mtssdashboard'), $wep->midyear_mathematics   ?? '', 3); ?>
-    <?php echo mtssdashboard_wep_field(get_string('wep_endofyear_mathematics', 'mod_mtssdashboard'), $wep->endofyear_mathematics ?? '', 3); ?>
-  <?php endif; ?>
-
-  <?php if ($show_science): ?>
-    <div class="subj-heading"><?php echo htmlspecialchars(get_string('wep_id_science', 'mod_mtssdashboard'), ENT_QUOTES, 'UTF-8'); ?></div>
-    <?php echo mtssdashboard_wep_field(get_string('wep_goal_science',      'mod_mtssdashboard'), $wep->goal_science      ?? ''); ?>
-    <?php echo mtssdashboard_wep_field(get_string('wep_midyear_science',   'mod_mtssdashboard'), $wep->midyear_science   ?? '', 3); ?>
-    <?php echo mtssdashboard_wep_field(get_string('wep_endofyear_science', 'mod_mtssdashboard'), $wep->endofyear_science ?? '', 3); ?>
-  <?php endif; ?>
-
-  <?php if ($show_ss): ?>
-    <div class="subj-heading"><?php echo htmlspecialchars(get_string('wep_id_social_studies', 'mod_mtssdashboard'), ENT_QUOTES, 'UTF-8'); ?></div>
-    <?php echo mtssdashboard_wep_field(get_string('wep_goal_social_studies',      'mod_mtssdashboard'), $wep->goal_social_studies      ?? ''); ?>
-    <?php echo mtssdashboard_wep_field(get_string('wep_midyear_social_studies',   'mod_mtssdashboard'), $wep->midyear_social_studies   ?? '', 3); ?>
-    <?php echo mtssdashboard_wep_field(get_string('wep_endofyear_social_studies', 'mod_mtssdashboard'), $wep->endofyear_social_studies ?? '', 3); ?>
-  <?php endif; ?>
-
+  ';
+    if ($showreading) :
+        echo '    <div class="subj-heading">';
+        echo htmlspecialchars(get_string('wep_id_reading_writing', 'mod_mtssdashboard'), ENT_QUOTES, 'UTF-8');
+        echo '</div>
+    ';
+        echo mtssdashboard_wep_field(get_string('wep_goal_reading_writing', 'mod_mtssdashboard'), $wep->goal_reading_writing ?? '');
+        echo '    ';
+        echo mtssdashboard_wep_field(get_string('wep_midyear_reading', 'mod_mtssdashboard'), $wep->midyear_reading ?? '', 3);
+        echo '    ';
+        echo mtssdashboard_wep_field(get_string('wep_endofyear_reading', 'mod_mtssdashboard'), $wep->endofyear_reading ?? '', 3);
+        echo '  ';
+    endif;
+    echo '
+  ';
+    if ($showmath) :
+        echo '    <div class="subj-heading">';
+        echo htmlspecialchars(get_string('wep_id_mathematics', 'mod_mtssdashboard'), ENT_QUOTES, 'UTF-8');
+        echo '</div>
+    ';
+        echo mtssdashboard_wep_field(get_string('wep_goal_mathematics', 'mod_mtssdashboard'), $wep->goal_mathematics ?? '');
+        echo '    ';
+        echo mtssdashboard_wep_field(
+            get_string('wep_midyear_mathematics', 'mod_mtssdashboard'),
+            $wep->midyear_mathematics ?? '',
+            3
+        );
+        echo '    ';
+        echo mtssdashboard_wep_field(
+            get_string('wep_endofyear_mathematics', 'mod_mtssdashboard'),
+            $wep->endofyear_mathematics ?? '',
+            3
+        );
+        echo '  ';
+    endif;
+    echo '
+  ';
+    if ($showscience) :
+        echo '    <div class="subj-heading">';
+        echo htmlspecialchars(get_string('wep_id_science', 'mod_mtssdashboard'), ENT_QUOTES, 'UTF-8');
+        echo '</div>
+    ';
+        echo mtssdashboard_wep_field(get_string('wep_goal_science', 'mod_mtssdashboard'), $wep->goal_science ?? '');
+        echo '    ';
+        echo mtssdashboard_wep_field(get_string('wep_midyear_science', 'mod_mtssdashboard'), $wep->midyear_science ?? '', 3);
+        echo '    ';
+        echo mtssdashboard_wep_field(get_string('wep_endofyear_science', 'mod_mtssdashboard'), $wep->endofyear_science ?? '', 3);
+        echo '  ';
+    endif;
+    echo '
+  ';
+    if ($showss) :
+        echo '    <div class="subj-heading">';
+        echo htmlspecialchars(get_string('wep_id_social_studies', 'mod_mtssdashboard'), ENT_QUOTES, 'UTF-8');
+        echo '</div>
+    ';
+        echo mtssdashboard_wep_field(get_string('wep_goal_social_studies', 'mod_mtssdashboard'), $wep->goal_social_studies ?? '');
+        echo '    ';
+        echo mtssdashboard_wep_field(
+            get_string('wep_midyear_social_studies', 'mod_mtssdashboard'),
+            $wep->midyear_social_studies ?? '',
+            3
+        );
+        echo '    ';
+        echo mtssdashboard_wep_field(
+            get_string('wep_endofyear_social_studies', 'mod_mtssdashboard'),
+            $wep->endofyear_social_studies ?? '',
+            3
+        );
+        echo '  ';
+    endif;
+    echo '
 </div>
 
 <!-- Parent Input -->
 <div class="section">
-  <?php echo mtssdashboard_wep_field(get_string('wep_parent_input', 'mod_mtssdashboard'), $wep->parent_input ?? '', 4); ?>
-</div>
+  ';
+    echo mtssdashboard_wep_field(get_string('wep_parent_input', 'mod_mtssdashboard'), $wep->parent_input ?? '', 4);
+    echo '</div>
 
 <!-- Signatures -->
 <div class="section">
-  <div class="section-title"><?php echo htmlspecialchars(get_string('wep_section_signatures', 'mod_mtssdashboard'), ENT_QUOTES, 'UTF-8'); ?></div>
-  <div class="sig-label"><?php echo htmlspecialchars(get_string('wep_sig_parent', 'mod_mtssdashboard'), ENT_QUOTES, 'UTF-8'); ?>: ___________________________</div>
-  <div class="sig-line"><?php echo nl2br(htmlspecialchars($wep->sig_parent ?? '', ENT_QUOTES, 'UTF-8')); ?></div>
+  <div class="section-title">';
+    echo htmlspecialchars(get_string('wep_section_signatures', 'mod_mtssdashboard'), ENT_QUOTES, 'UTF-8');
+    echo '</div>
+  <div class="sig-label">';
+    echo htmlspecialchars(get_string('wep_sig_parent', 'mod_mtssdashboard'), ENT_QUOTES, 'UTF-8');
+    echo ': ___________________________</div>
+  <div class="sig-line">';
+    echo nl2br(htmlspecialchars($wep->sig_parent ?? '', ENT_QUOTES, 'UTF-8'));
+    echo '</div>
 </div>
 
 <p style="font-size:9pt; color:#555; margin-top:1em;">
-  <?php echo htmlspecialchars(get_string('wep_sig_footer', 'mod_mtssdashboard'), ENT_QUOTES, 'UTF-8'); ?>
-</p>
+  ';
+    echo htmlspecialchars(get_string('wep_sig_footer', 'mod_mtssdashboard'), ENT_QUOTES, 'UTF-8');
+    echo '</p>
 
 <div class="doc-footer">
-  <?php echo htmlspecialchars(fullname($student), ENT_QUOTES, 'UTF-8'); ?>
-  (<?php echo htmlspecialchars((string)$studentnumber, ENT_QUOTES, 'UTF-8'); ?>)
-  &mdash; Generated <?php echo date('m/d/Y'); ?>
-  <?php if ($status_text !== ''): ?>&mdash; <?php echo htmlspecialchars($status_text, ENT_QUOTES, 'UTF-8'); ?><?php endif; ?>
-</div>
+  ';
+    echo htmlspecialchars(fullname($student), ENT_QUOTES, 'UTF-8');
+    echo '  (';
+    echo htmlspecialchars((string)$studentnumber, ENT_QUOTES, 'UTF-8');
+    echo ')
+  &mdash; Generated ';
+    echo date('m/d/Y');
+    echo '  ';
+    if ($statustext !== '') :
+        echo '&mdash; ';
+        echo htmlspecialchars($statustext, ENT_QUOTES, 'UTF-8');
+    endif;
+    echo '</div>
 
 <button class="print-btn" onclick="window.print()" style="margin-top:1em;">Print / Save as PDF</button>
 
 </body>
 </html>
-<?php
+';
 }
 
 /**
@@ -3204,7 +3516,7 @@ function mtssdashboard_render_student_charts($ssid) {
         return false;
     }
 
-    // ── Proficiency-band cutoffs (approximate Ohio breakpoints) ───────────────
+    // Proficiency-band cutoffs (approximate Ohio breakpoints).
     // Used to position dots within their band on the trend chart so two
     // students at the same proficiency level but different scores show at
     // visually distinguishable heights. The exact ranges vary by subject and
@@ -3219,7 +3531,7 @@ function mtssdashboard_render_student_charts($ssid) {
     ];
 
     // Maps proficiency_level to its 1-5 base Y value (band floor).
-    $prof_to_yfloor = [
+    $proftoyfloor = [
         'Limited'      => 1.0,
         'Basic'        => 2.0,
         'Proficient'   => 3.0,
@@ -3227,27 +3539,27 @@ function mtssdashboard_render_student_charts($ssid) {
         'Advanced'     => 5.0,
     ];
 
-    // ── Build trend datasets: one line per subject AREA (4 lines total) ───────
+    // Build trend datasets: one line per subject AREA (4 lines total).
     // X-axis = unique years (sorted). Y-axis = proficiency level (1-5).
     // Each dot's Y is fine-tuned within its band by where the score falls
     // between the band's min and max in $cutoffs.
-    $code_to_area = [
-        'R'    => 'ela',  'ELA'  => 'ela',  'ELA2' => 'ela',
+    $codetoarea = [
+        'R'    => 'ela', 'ELA'  => 'ela', 'ELA2' => 'ela',
         'M'    => 'math', 'MTH1' => 'math', 'ALG1' => 'math', 'GEOM' => 'math',
-        'S'    => 'sci',  'BIOL' => 'sci',
-        'C'    => 'ss',   'HIST' => 'ss',   'GOVM' => 'ss',
+        'S'    => 'sci', 'BIOL' => 'sci',
+        'C'    => 'ss', 'HIST' => 'ss', 'GOVM' => 'ss',
     ];
-    $area_labels = [
+    $arealabels = [
         'ela'  => 'English Language Arts',
         'math' => 'Mathematics',
         'sci'  => 'Science',
         'ss'   => 'Social Studies',
     ];
-    $area_colors = [
-        'ela'  => '#4e73df', // blue
-        'math' => '#1cc88a', // green
-        'sci'  => '#f6c23e', // yellow
-        'ss'   => '#e74a3b', // red
+    $areacolors = [
+        'ela'  => '#4e73df', // Blue.
+        'math' => '#1cc88a', // Green.
+        'sci'  => '#f6c23e', // Yellow.
+        'ss'   => '#e74a3b', // Red.
     ];
 
     // X-axis: list of unique years the student has any test in, chronological.
@@ -3260,12 +3572,12 @@ function mtssdashboard_render_student_charts($ssid) {
 
     // Compute (year-index, Y, score) for every test, grouped by subject area.
     // Using {x: yearindex, y: Y} object form lets two tests share a year.
-    $area_points = [];
-    foreach ($area_labels as $areakey => $_) {
-        $area_points[$areakey] = [];
+    $areapoints = [];
+    foreach ($arealabels as $areakey => $unused) {
+        $areapoints[$areakey] = [];
     }
     foreach ($allresults as $r) {
-        $area = $code_to_area[$r->subject_code] ?? null;
+        $area = $codetoarea[$r->subject_code] ?? null;
         if ($area === null) {
             continue;
         }
@@ -3274,7 +3586,7 @@ function mtssdashboard_render_student_charts($ssid) {
             continue;
         }
         $pl = $r->proficiency_level ?? null;
-        $yfloor = $prof_to_yfloor[$pl] ?? null;
+        $yfloor = $proftoyfloor[$pl] ?? null;
         if ($yfloor === null) {
             continue; // Unknown proficiency level — skip.
         }
@@ -3290,7 +3602,7 @@ function mtssdashboard_render_student_charts($ssid) {
             $frac = max(0.0, min(0.99, $frac));
             $y = $yfloor + $frac;
         }
-        $area_points[$area][] = [
+        $areapoints[$area][] = [
             'x'        => (int) $yearidx,
             'y'        => round($y, 3),
             'score'    => (int) $r->assessment_score,
@@ -3300,8 +3612,8 @@ function mtssdashboard_render_student_charts($ssid) {
     }
 
     // Sort each area's points by year-index so the line draws left-to-right.
-    foreach ($area_points as &$pts) {
-        usort($pts, function($a, $b) {
+    foreach ($areapoints as &$pts) {
+        usort($pts, function ($a, $b) {
             return $a['x'] - $b['x'];
         });
     }
@@ -3309,14 +3621,14 @@ function mtssdashboard_render_student_charts($ssid) {
 
     // Build one Chart.js dataset per area that actually has any points.
     $trendsets = [];
-    foreach ($area_labels as $areakey => $arealabel) {
-        if (empty($area_points[$areakey])) {
+    foreach ($arealabels as $areakey => $arealabel) {
+        if (empty($areapoints[$areakey])) {
             continue;
         }
-        $color = $area_colors[$areakey];
+        $color = $areacolors[$areakey];
         $trendsets[] = [
             'label'                => $arealabel,
-            'data'                 => $area_points[$areakey],
+            'data'                 => $areapoints[$areakey],
             'borderColor'          => $color,
             'backgroundColor'      => $color . '22',
             'pointBackgroundColor' => $color,
@@ -3329,13 +3641,13 @@ function mtssdashboard_render_student_charts($ssid) {
         ];
     }
 
-    // ── Radar: one polygon per year, axes = subject AREA ──────────────────────
+    // Radar: one polygon per year, axes = subject AREA.
     // Each vertex value is the average proficiency-Y of that year/area's tests
     // (same 1-5 mapping used by the trend chart). When a year is missing data
     // for an area, the previous year's value is carried forward so the
     // polygon stays whole.
-    $radar_axes  = ['ela', 'math', 'sci', 'ss'];
-    $radar_axis_labels = [
+    $radaraxes  = ['ela', 'math', 'sci', 'ss'];
+    $radaraxislabels = [
         'ela'  => 'English Language Arts',
         'math' => 'Mathematics',
         'sci'  => 'Science',
@@ -3344,14 +3656,14 @@ function mtssdashboard_render_student_charts($ssid) {
 
     // Collect Y values per (year, area). Same code_to_area, prof_to_yfloor,
     // bandranges defined earlier in this function.
-    $radar_year_area_y = [];
+    $radaryearareay = [];
     foreach ($allresults as $r) {
-        $area = $code_to_area[$r->subject_code] ?? null;
+        $area = $codetoarea[$r->subject_code] ?? null;
         if ($area === null) {
             continue;
         }
         $pl = $r->proficiency_level ?? null;
-        $yfloor = $prof_to_yfloor[$pl] ?? null;
+        $yfloor = $proftoyfloor[$pl] ?? null;
         if ($yfloor === null) {
             continue;
         }
@@ -3363,26 +3675,28 @@ function mtssdashboard_render_student_charts($ssid) {
             $frac = max(0.0, min(0.99, $frac));
             $y = $yfloor + $frac;
         }
-        $radar_year_area_y[$r->year][$area][] = $y;
+        $radaryearareay[$r->year][$area][] = $y;
     }
 
     // Sort years chronologically (we already have $assessmentlabels = sorted years).
-    $radar_years = $assessmentlabels;
+    $radaryears = $assessmentlabels;
 
     // Build per-year polygons. Carry-forward fills missing-area vertices.
-    $radar_year_colors = [
+    $radaryearcolors = [
         '#4e73df', '#1cc88a', '#f6c23e', '#e74a3b',
         '#36b9cc', '#858796', '#fd7e14',
     ];
-    $radar_datasets = [];
+    $radardatasets = [];
     $carry = ['ela' => null, 'math' => null, 'sci' => null, 'ss' => null];
     $ci = 0;
-    foreach ($radar_years as $yr) {
+    foreach ($radaryears as $yr) {
         $vertex = [];
-        foreach ($radar_axes as $area) {
-            if (isset($radar_year_area_y[$yr][$area])
-                    && !empty($radar_year_area_y[$yr][$area])) {
-                $vals = $radar_year_area_y[$yr][$area];
+        foreach ($radaraxes as $area) {
+            if (
+                isset($radaryearareay[$yr][$area])
+                    && !empty($radaryearareay[$yr][$area])
+            ) {
+                $vals = $radaryearareay[$yr][$area];
                 $avg = array_sum($vals) / count($vals);
                 $carry[$area] = $avg;
                 $vertex[] = round($avg, 3);
@@ -3393,8 +3707,8 @@ function mtssdashboard_render_student_charts($ssid) {
                 $vertex[] = 0;
             }
         }
-        $color = $radar_year_colors[$ci % count($radar_year_colors)];
-        $radar_datasets[] = [
+        $color = $radaryearcolors[$ci % count($radaryearcolors)];
+        $radardatasets[] = [
             'label'                => $yr,
             'data'                 => $vertex,
             'backgroundColor'      => $color . '22',
@@ -3407,36 +3721,42 @@ function mtssdashboard_render_student_charts($ssid) {
     }
 
     // Variables consumed by the JS render block below.
-    $radarLabelsArr = array_map(function($a) use ($radar_axis_labels) {
-        return $radar_axis_labels[$a];
-    }, $radar_axes);
+    $radarlabelsarr = array_map(function ($a) use ($radaraxislabels) {
+        return $radaraxislabels[$a];
+    }, $radaraxes);
 
-    // ── Charts ────────────────────────────────────────────────────────────────
+    // Charts.
     echo html_writer::start_div('row mb-3');
 
     // Trend line chart.
     echo html_writer::start_div('col-md-8');
-    echo html_writer::tag('h5', get_string('chart_trend', 'mod_mtssdashboard'),
-        ['class'=>'text-center']);
+    echo html_writer::tag(
+        'h5',
+        get_string('chart_trend', 'mod_mtssdashboard'),
+        ['class' => 'text-center']
+    );
     echo html_writer::start_div('', ['style' => 'position:relative; height:400px;']);
-    echo html_writer::tag('canvas', '', ['id'=>'chartTrend']);
+    echo html_writer::tag('canvas', '', ['id' => 'chartTrend']);
     echo html_writer::end_div();
     echo html_writer::end_div();
 
     // Radar chart.
     echo html_writer::start_div('col-md-4');
-    echo html_writer::tag('h5', get_string('chart_radar', 'mod_mtssdashboard'),
-        ['class'=>'text-center']);
-    echo html_writer::tag('canvas', '', ['id'=>'chartRadar']);
+    echo html_writer::tag(
+        'h5',
+        get_string('chart_radar', 'mod_mtssdashboard'),
+        ['class' => 'text-center']
+    );
+    echo html_writer::tag('canvas', '', ['id' => 'chartRadar']);
     echo html_writer::end_div();
 
     echo html_writer::end_div();
 
-    // ── Chart.js ──────────────────────────────────────────────────────────────
-    $trendJson         = json_encode($trendsets);
-    $yearLabels        = json_encode($assessmentlabels);
-    $radarLabels       = json_encode($radarLabelsArr);
-    $radarDatasetsJson = json_encode($radar_datasets);
+    // Chart.js.
+    $trendjson         = json_encode($trendsets);
+    $yearlabels        = json_encode($assessmentlabels);
+    $radarlabels       = json_encode($radarlabelsarr);
+    $radardatasetsjson = json_encode($radardatasets);
 
     echo <<<JS
 <script>
@@ -3475,7 +3795,7 @@ function mtssdashboard_render_student_charts($ssid) {
     };
     new Chart(ctx1, {
         type: 'line',
-        data: { labels: {$yearLabels}, datasets: {$trendJson} },
+        data: { labels: {$yearlabels}, datasets: {$trendjson} },
         plugins: [scorelabelPlugin],
         options: {
             responsive: true,
@@ -3524,8 +3844,8 @@ function mtssdashboard_render_student_charts($ssid) {
     new Chart(ctx2, {
         type: 'radar',
         data: {
-            labels: {$radarLabels},
-            datasets: {$radarDatasetsJson}
+            labels: {$radarlabels},
+            datasets: {$radardatasetsjson}
         },
         options: {
             responsive: true,
@@ -3580,8 +3900,10 @@ JS;
 function stv_get_edit_lock($studentnumber, $recordtype) {
     global $DB;
 
-    $lock = $DB->get_record('mtssdashboard_edit_sessions',
-        ['studentnumber' => $studentnumber, 'recordtype' => $recordtype]);
+    $lock = $DB->get_record(
+        'mtssdashboard_edit_sessions',
+        ['studentnumber' => $studentnumber, 'recordtype' => $recordtype]
+    );
 
     if (!$lock) {
         return false;
@@ -3717,10 +4039,7 @@ function mtssdashboard_render_bulk_reports($type, array $studentnumbers, $school
     echo '  .bulk-report + .bulk-report { break-before: page; page-break-before: always; }' . "\n";
     echo '  @media screen { .bulk-report + .bulk-report { border-top: 3px dashed #999;' .
          ' margin-top: 2em; padding-top: 2em; } }' . "\n";
-    // Every report gets the same top space so the Student ID prints in the
-    // exact same spot on each student's first page (not just the first one).
-    echo '  @media print { .bulk-toolbar { display: none; } body { padding-top: 0; }' .
-         ' .bulk-report { padding-top: 0.5cm; } }' . "\n";
+    echo '  @media print { .bulk-toolbar { display: none; } }' . "\n";
     echo '</style>' . "\n";
     echo '</head>' . "\n";
     echo '<body>' . "\n";

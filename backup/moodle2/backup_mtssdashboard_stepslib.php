@@ -27,13 +27,10 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Defines the complete mtssdashboard backup structure.
  */
 class backup_mtssdashboard_activity_structure_step extends backup_activity_structure_step {
-
     /**
      * Define the backup structure tree.
      *
@@ -41,9 +38,8 @@ class backup_mtssdashboard_activity_structure_step extends backup_activity_struc
      */
     protected function define_structure() {
 
-        // ------------------------------------------------------------------ //
+        // ------------------------------------------------------------------
         // 1. Main instance element — fields from the mtssdashboard table.
-        // ------------------------------------------------------------------ //
         $mtssdashboard = new backup_nested_element('mtssdashboard', ['id'], [
             'name',
             'intro',
@@ -54,10 +50,9 @@ class backup_mtssdashboard_activity_structure_step extends backup_activity_struc
             'timemodified',
         ]);
 
-        // ------------------------------------------------------------------ //
+        // ------------------------------------------------------------------
         // 2. Warning levels — site-wide config, included for preservation.
-        //    Nested under the activity element so they travel with the backup.
-        // ------------------------------------------------------------------ //
+        // Nested under the activity element so they travel with the backup.
         $warninglevels = new backup_nested_element('warning_levels');
 
         $warninglevel = new backup_nested_element('warning_level', ['id'], [
@@ -76,9 +71,8 @@ class backup_mtssdashboard_activity_structure_step extends backup_activity_struc
         $mtssdashboard->add_child($warninglevels);
         $warninglevels->add_child($warninglevel);
 
-        // ------------------------------------------------------------------ //
+        // ------------------------------------------------------------------
         // 3. Data sources.
-        // ------------------------------------------------------------------ //
 
         // Main instance — use the standard per-activity WHERE clause.
         $mtssdashboard->set_source_table('mtssdashboard', ['id' => backup::VAR_ACTIVITYID]);
@@ -86,9 +80,8 @@ class backup_mtssdashboard_activity_structure_step extends backup_activity_struc
         // Warning levels — back up ALL rows (site-wide, not per-instance).
         $warninglevel->set_source_table('mtssdashboard_warning_levels', []);
 
-        // ------------------------------------------------------------------ //
+        // ------------------------------------------------------------------
         // 4. No user-data annotations needed for this module.
-        // ------------------------------------------------------------------ //
 
         // Return the root of the structure wrapped in the standard envelope.
         return $this->prepare_activity_structure($mtssdashboard);

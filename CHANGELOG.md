@@ -1,3 +1,42 @@
+## [2026112001] — 2026-11-20 (v0.4.8)
+
+### Changed
+- Code brought up to the Moodle coding style so the GitHub Moodle Plugin CI
+  passes: Moodle Code Checker (`--max-warnings 0`) and Moodle PHPDoc
+  Checker both report zero problems. **No behaviour change.**
+  - Automatic `phpcbf` fixes (spacing, indentation, braces on one-line
+    `if` statements, `list()` → `[]`).
+  - 193 local variables renamed to Moodle style (no underscores / all
+    lower-case). Function names, DB fields, language strings and config
+    names are unchanged.
+  - `lib.php`: the RIMP and WEP print templates no longer switch in and out
+    of PHP; the inline HTML is now emitted with `echo`. Output verified
+    byte-for-byte identical for RIMP and WEP at ES/MS/HS, draft and
+    finalized, with and without a student photo.
+  - Long string literals split with `.` concatenation (same values).
+  - Section-header comments (`// ── Title ──`, `// ═══`) changed to the
+    Moodle comment style; inline comments capitalised and punctuated.
+  - Missing PHPDoc `@param`/`@return` added (`stv_filter_students`,
+    `stv_get_results`, `stv_get_all_results`, `stv_by_subject`,
+    `stv_prof_counts`, `stv_render_filters`, `stv_filter_select`,
+    `stv_subject_chart`, `stv_render_table`, `stv_get_grade_currency`, and
+    the RIMP/WEP import and edit helpers); `{@link}` → `{@see}` in the
+    restore task.
+  - Unneeded `defined('MOODLE_INTERNAL')` checks removed from `lib.php`,
+    `db/install.php`, `db/upgrade.php` and the backup/restore step files,
+    as the code checker requires.
+  - `view.php`: trailing spaces removed inside the state-test proficiency
+    SQL string (whitespace only); two commented-out "Proficiency legend"
+    blocks removed (they were already disabled).
+
+### Removed
+- `backup/moodle2/backup_statetestview_activity_task.class.php`,
+  `backup_statetestview_stepslib.php`,
+  `restore_statetestview_activity_task.class.php`,
+  `restore_statetestview_stepslib.php` — leftovers from the old plugin name
+  that were never loaded and duplicated the mtssdashboard class names.
+- `mtssdashboard_additions.php` — old language-string notes, never loaded.
+
 ## [2026112000] — 2026-11-20 (v0.4.7)
 
 ### Added

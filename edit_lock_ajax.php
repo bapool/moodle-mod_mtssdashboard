@@ -28,13 +28,13 @@ define('AJAX_SCRIPT', true);
 require_once(__DIR__ . '/../../config.php');
 require_once($CFG->dirroot . '/mod/mtssdashboard/lib.php');
 
-// ── Parameters ────────────────────────────────────────────────────────────────
+// Parameters.
 $id            = required_param('id', PARAM_INT);
 $studentnumber = required_param('sn', PARAM_INT);
 $recordtype    = required_param('type', PARAM_ALPHA);
 $action        = required_param('lockaction', PARAM_ALPHA);
 
-// ── Bootstrap ─────────────────────────────────────────────────────────────────
+// Bootstrap.
 $cm      = get_coursemodule_from_id('mtssdashboard', $id, 0, false, MUST_EXIST);
 $course  = $DB->get_record('course', ['id' => $cm->course], '*', MUST_EXIST);
 $context = context_module::instance($cm->id);
@@ -59,7 +59,7 @@ if ($action === 'release') {
     die();
 }
 
-// action === 'heartbeat'
+// Action === 'heartbeat'.
 $acquired = stv_acquire_edit_lock($studentnumber, $recordtype, $USER->id);
 if (!$acquired) {
     // Someone else has taken the lock since this page loaded (rare race).

@@ -25,8 +25,7 @@
 defined('MOODLE_INTERNAL') || die();
 
 if ($ADMIN->fulltree) {
-
-    // ── School Year ───────────────────────────────────────────────────────────
+    // School Year.
     $settings->add(new admin_setting_heading(
         'mod_mtssdashboard/schoolyear_heading',
         get_string('settings_schoolyear_heading', 'mod_mtssdashboard'),
@@ -41,7 +40,7 @@ if ($ADMIN->fulltree) {
         PARAM_INT
     ));
 
-    // ── Course Categories ─────────────────────────────────────────────────────
+    // Course Categories.
     $settings->add(new admin_setting_heading(
         'mod_mtssdashboard/categories_heading',
         get_string('settings_categories_heading', 'mod_mtssdashboard'),
@@ -72,7 +71,7 @@ if ($ADMIN->fulltree) {
         PARAM_INT
     ));
 
-    // ── Grade Ranges ──────────────────────────────────────────────────────────
+    // Grade Ranges.
     $settings->add(new admin_setting_heading(
         'mod_mtssdashboard/graderanges_heading',
         get_string('settings_graderanges_heading', 'mod_mtssdashboard'),
@@ -129,7 +128,7 @@ if ($ADMIN->fulltree) {
         '4',
         PARAM_INT
     ));
-    // ── Gradebook Settings ────────────────────────────────────────────────────
+    // Gradebook Settings.
     $settings->add(new admin_setting_heading(
         'mod_mtssdashboard/grades_heading',
         get_string('settings_grades_heading', 'mod_mtssdashboard'),

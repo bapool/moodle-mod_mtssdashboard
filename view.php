@@ -25,7 +25,7 @@
 require_once('../../config.php');
 require_once($CFG->dirroot . '/mod/mtssdashboard/lib.php');
 
-// ── Parameters ────────────────────────────────────────────────────────────────
+// Parameters.
 $id         = required_param('id', PARAM_INT);
 $tab        = optional_param('tab', 'earlywarning', PARAM_ALPHANUMEXT);
 $editmode   = optional_param('edit', 0, PARAM_INT);
@@ -34,16 +34,16 @@ $year       = optional_param('year', '', PARAM_TEXT);
 $studuserid = optional_param('studuserid', 0, PARAM_INT);
 
 // Demographic filters.
-$f_gender = optional_param('f_gender', '', PARAM_TEXT);
-$f_race   = optional_param('f_race',   '', PARAM_TEXT);
-$f_ed     = optional_param('f_ed',     '', PARAM_TEXT);
-$f_swd    = optional_param('f_swd',    '', PARAM_TEXT);
-$f_el     = optional_param('f_el',     '', PARAM_TEXT);
-$f_504    = optional_param('f_504',    '', PARAM_TEXT);
-$f_iep    = optional_param('f_iep',    '', PARAM_TEXT);
-$f_gifted = optional_param('f_gifted', '', PARAM_TEXT);
+$fgender = optional_param('f_gender', '', PARAM_TEXT);
+$frace   = optional_param('f_race', '', PARAM_TEXT);
+$fed     = optional_param('f_ed', '', PARAM_TEXT);
+$fswd    = optional_param('f_swd', '', PARAM_TEXT);
+$fel     = optional_param('f_el', '', PARAM_TEXT);
+$f504    = optional_param('f_504', '', PARAM_TEXT);
+$fiep    = optional_param('f_iep', '', PARAM_TEXT);
+$fgifted = optional_param('f_gifted', '', PARAM_TEXT);
 
-// ── Bootstrap ─────────────────────────────────────────────────────────────────
+// Bootstrap.
 $cm       = get_coursemodule_from_id('mtssdashboard', $id, 0, false, MUST_EXIST);
 $course   = $DB->get_record('course', ['id' => $cm->course], '*', MUST_EXIST);
 $instance = $DB->get_record('mtssdashboard', ['id' => $cm->instance], '*', MUST_EXIST);
@@ -63,19 +63,24 @@ if ($year === '' && !empty($instance->defaultyear)) {
 $completion = new completion_info($course);
 $completion->set_module_viewed($cm);
 
-// ── Save handler: warning levels edit form ───────────────────────────────────
+// Save handler: warning levels edit form.
 // Runs before any output so we can redirect cleanly on success.
-if (optional_param('action', '', PARAM_ALPHANUMEXT) === 'savewarning'
-        && $_SERVER['REQUEST_METHOD'] === 'POST') {
-
+if (
+    optional_param('action', '', PARAM_ALPHANUMEXT) === 'savewarning'
+        && $_SERVER['REQUEST_METHOD'] === 'POST'
+) {
     require_sesskey();
 
     $schoollevel = stv_get_school_level_for_course($course);
 
     // Re-check edit permission on the server side. Never trust the client.
     if (!stv_can_edit_warning_levels($course, $schoollevel)) {
-        throw new moodle_exception('nopermissions', 'error', '',
-            get_string('warning_btn_edit', 'mod_mtssdashboard'));
+        throw new moodle_exception(
+            'nopermissions',
+            'error',
+            '',
+            get_string('warning_btn_edit', 'mod_mtssdashboard')
+        );
     }
 
     $tmins = optional_param_array('tmin', [], PARAM_RAW_TRIMMED);
@@ -83,8 +88,12 @@ if (optional_param('action', '', PARAM_ALPHANUMEXT) === 'savewarning'
 
     // Fetch all rows for this school level so we can validate row IDs and
     // refuse updates to rows belonging to another school level.
-    $existing = $DB->get_records('mtssdashboard_warning_levels',
-        ['schoollevel' => $schoollevel], '', 'id, metric_key, color');
+    $existing = $DB->get_records(
+        'mtssdashboard_warning_levels',
+        ['schoollevel' => $schoollevel],
+        '',
+        'id, metric_key, color'
+    );
 
     $now = time();
 
@@ -118,7 +127,7 @@ if (optional_param('action', '', PARAM_ALPHANUMEXT) === 'savewarning'
         $DB->update_record('mtssdashboard_warning_levels', $update);
     }
 
-    // iReady Lessons toggles: "by Grade" (lessonsoff_*) and "for RIMP Students"
+    // IReady Lessons toggles: "by Grade" (lessonsoff_*) and "for RIMP Students"
     // (rimplessonsoff_*). Each is only processed when its card was on the
     // submitted form (hidden marker), so an unchecked box means "lessons on".
     $validgrades = stv_get_school_level_grades($schoollevel);
@@ -130,8 +139,11 @@ if (optional_param('action', '', PARAM_ALPHANUMEXT) === 'savewarning'
             $picked = optional_param_array($prefix . $subject, [], PARAM_INT);
             $keep   = array_values(array_intersect($validgrades, array_map('intval', $picked)));
             sort($keep);
-            set_config($prefix . $schoollevel . '_' . $subject,
-                implode(',', $keep), 'mod_mtssdashboard');
+            set_config(
+                $prefix . $schoollevel . '_' . $subject,
+                implode(',', $keep),
+                'mod_mtssdashboard'
+            );
         }
     }
 
@@ -140,13 +152,15 @@ if (optional_param('action', '', PARAM_ALPHANUMEXT) === 'savewarning'
         'id'  => $cm->id,
         'tab' => 'warning',
     ]);
-    redirect($redirecturl,
+    redirect(
+        $redirecturl,
         get_string('warning_saved', 'mod_mtssdashboard'),
         null,
-        \core\output\notification::NOTIFY_SUCCESS);
+        \core\output\notification::NOTIFY_SUCCESS
+    );
 }
 
-// ── Page setup ────────────────────────────────────────────────────────────────
+// Page setup.
 $pageurlparams = ['id' => $cm->id, 'tab' => $tab];
 if ($year !== '') {
     $pageurlparams['year'] = $year;
@@ -168,33 +182,33 @@ $groupid = groups_get_activity_group($cm, true);
 $PAGE->requires->js('/mod/mtssdashboard/chartjs.umd.min.js', true);
 $PAGE->requires->js('/lib/amd/build/chartjs.min.js');
 
-// ── Load data ─────────────────────────────────────────────────────────────────
-// ── Load level config and determine course level ──────────────────────────────
+// Load data.
+// Load level config and determine course level.
 $levelcfg    = mtssdashboard_get_level_config();
 $courselevel = mtssdashboard_get_course_level($course->category, $levelcfg);
 
 // Set grade ranges for current and previous level.
 if ($courselevel === 'hs') {
-    $cur_min  = $levelcfg->hs_min;
-    $cur_max  = $levelcfg->hs_max;
-    $prev_min = $levelcfg->ms_min;
-    $prev_max = $levelcfg->ms_max;
-    $prev_heading = get_string('history_hs_heading', 'mod_mtssdashboard');
+    $curmin  = $levelcfg->hs_min;
+    $curmax  = $levelcfg->hs_max;
+    $prevmin = $levelcfg->ms_min;
+    $prevmax = $levelcfg->ms_max;
+    $prevheading = get_string('history_hs_heading', 'mod_mtssdashboard');
 } else if ($courselevel === 'ms') {
-    $cur_min  = $levelcfg->ms_min;
-    $cur_max  = $levelcfg->ms_max;
-    $prev_min = $levelcfg->es_min;
-    $prev_max = $levelcfg->es_max;
-    $prev_heading = get_string('history_ms_heading', 'mod_mtssdashboard');
+    $curmin  = $levelcfg->ms_min;
+    $curmax  = $levelcfg->ms_max;
+    $prevmin = $levelcfg->es_min;
+    $prevmax = $levelcfg->es_max;
+    $prevheading = get_string('history_ms_heading', 'mod_mtssdashboard');
 } else {
-    $cur_min  = $levelcfg->es_min;
-    $cur_max  = $levelcfg->es_max;
-    $prev_min = null;
-    $prev_max = null;
-    $prev_heading = get_string('history_es_heading', 'mod_mtssdashboard');
+    $curmin  = $levelcfg->es_min;
+    $curmax  = $levelcfg->es_max;
+    $prevmin = null;
+    $prevmax = null;
+    $prevheading = get_string('history_es_heading', 'mod_mtssdashboard');
 }
 
-// ── Load data ─────────────────────────────────────────────────────────────────
+// Load data.
 $allstudents    = mtssdashboard_get_enrolled_students_with_ssid($course->id);
 $yearoptions    = mtssdashboard_get_years();
 $groups         = groups_get_all_groups($course->id);
@@ -203,7 +217,7 @@ foreach ($groups as $g) {
     $groupoptions[$g->id] = $g->name;
 }
 
-// ── Proficiency colour map ────────────────────────────────────────────────────
+// Proficiency colour map.
 $profcolors = [
     'Advanced'     => '#1a6e3c',
     'Accomplished' => '#2e86c1',
@@ -214,37 +228,56 @@ $profcolors = [
     'Not Reported' => '#6c757d',
 ];
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// HELPER FUNCTIONS
-// ═══════════════════════════════════════════════════════════════════════════════
+// ----------------------------------------------------------------------
+// HELPER FUNCTIONS.
 
 /**
  * Filter student list by demographic parameters.
+ *
+ * @param array  $students Student records to filter.
+ * @param string $fgender Gender filter ('' = any).
+ * @param string $frace   Race filter ('' = any).
+ * @param string $fed     Economically disadvantaged filter ('' = any).
+ * @param string $fswd    Students with disabilities filter ('' = any).
+ * @param string $fel     English learner filter ('' = any).
+ * @param string $f504    504 plan filter ('' = any).
+ * @param string $fiep    IEP filter ('' = any).
+ * @param string $fgifted Gifted filter ('' = any).
+ * @return array Students that match every filter.
  */
-function stv_filter_students($students, $f_gender, $f_race, $f_ed,
-                              $f_swd, $f_el, $f_504, $f_iep, $f_gifted) {
+function stv_filter_students(
+    $students,
+    $fgender,
+    $frace,
+    $fed,
+    $fswd,
+    $fel,
+    $f504,
+    $fiep,
+    $fgifted
+) {
     $out = [];
     foreach ($students as $s) {
-        if ($f_gender !== '' && strcasecmp($s->gender, $f_gender) !== 0) {
+        if ($fgender !== '' && strcasecmp($s->gender, $fgender) !== 0) {
             continue;
         }
-        if ($f_race !== '' && strcasecmp($s->race_ethnicity, $f_race) !== 0) {
+        if ($frace !== '' && strcasecmp($s->race_ethnicity, $frace) !== 0) {
             continue;
         }
-        if ($f_ed !== '') {
+        if ($fed !== '') {
             $ised = (stripos($s->ed_flag, 'free') !== false
                   || stripos($s->ed_flag, 'reduced') !== false) ? 'Y' : 'N';
-            if ($ised !== $f_ed) {
+            if ($ised !== $fed) {
                 continue;
             }
         }
-        if ($f_504   !== '' && strcasecmp($s->status504, $f_504)   !== 0) {
+        if ($f504 !== '' && strcasecmp($s->status504, $f504) !== 0) {
             continue;
         }
-        if ($f_iep   !== '' && strcasecmp($s->iep,       $f_iep)   !== 0) {
+        if ($fiep !== '' && strcasecmp($s->iep, $fiep) !== 0) {
             continue;
         }
-        if ($f_gifted !== '' && strcasecmp($s->gifted,   $f_gifted) !== 0) {
+        if ($fgifted !== '' && strcasecmp($s->gifted, $fgifted) !== 0) {
             continue;
         }
         $out[] = $s;
@@ -255,8 +288,13 @@ function stv_filter_students($students, $f_gender, $f_race, $f_ed,
 /**
  * Fetch state test results for a set of SSIDs, optionally filtered by year and EL.
  * Returns most recent record per student per subject when $mostrecentonly = true.
+ *
+ * @param array  $ssids State student IDs.
+ * @param string $year  School year to limit to ('' = all years).
+ * @param string $fel   English learner filter ('' = any).
+ * @return array Result records.
  */
-function stv_get_results($ssids, $year = '', $f_el = '') {
+function stv_get_results($ssids, $year = '', $fel = '') {
     global $DB, $CFG;
     if (empty($ssids)) {
         return [];
@@ -266,12 +304,12 @@ function stv_get_results($ssids, $year = '', $f_el = '') {
 
     if ($year !== '') {
         // Specific year — straightforward query.
-        list($insql, $params) = $DB->get_in_or_equal($ssids, SQL_PARAMS_NAMED, 'ssid');
+        [$insql, $params] = $DB->get_in_or_equal($ssids, SQL_PARAMS_NAMED, 'ssid');
         $where = "ssid $insql AND year = :year";
         $params['year'] = $year;
-        if ($f_el !== '') {
+        if ($fel !== '') {
             $where .= ' AND el_code = :el';
-            $params['el'] = $f_el;
+            $params['el'] = $fel;
         }
         $where .= " AND proficiency_level IS NOT NULL AND proficiency_level != '' AND proficiency_level != 'Untested'";
         return $DB->get_records_sql(
@@ -282,14 +320,14 @@ function stv_get_results($ssids, $year = '', $f_el = '') {
         );
     } else {
         // No year — most recent per student per subject using subquery.
-        list($insql1, $params1) = $DB->get_in_or_equal($ssids, SQL_PARAMS_NAMED, 'ssid1');
-        list($insql2, $params2) = $DB->get_in_or_equal($ssids, SQL_PARAMS_NAMED, 'ssid2');
-        list($insql3, $params3) = $DB->get_in_or_equal($ssids, SQL_PARAMS_NAMED, 'ssid3');
+        [$insql1, $params1] = $DB->get_in_or_equal($ssids, SQL_PARAMS_NAMED, 'ssid1');
+        [$insql2, $params2] = $DB->get_in_or_equal($ssids, SQL_PARAMS_NAMED, 'ssid2');
+        [$insql3, $params3] = $DB->get_in_or_equal($ssids, SQL_PARAMS_NAMED, 'ssid3');
         $params = array_merge($params1, $params2, $params3);
         $elwhere = '';
-        if ($f_el !== '') {
+        if ($fel !== '') {
             $elwhere = ' AND r.el_code = :el';
-            $params['el'] = $f_el;
+            $params['el'] = $fel;
         }
         return $DB->get_records_sql(
             "SELECT r.*
@@ -315,25 +353,30 @@ function stv_get_results($ssids, $year = '', $f_el = '') {
 /**
  * Fetch ALL state test results for a set of SSIDs without most-recent-only filtering.
  * Used for History tab where we need all years to calculate grade-when-tested.
+ *
+ * @param array  $ssids State student IDs.
+ * @param string $year  School year to limit to ('' = all years).
+ * @param string $fel   English learner filter ('' = any).
+ * @return array Result records.
  */
-function stv_get_all_results($ssids, $year = '', $f_el = '') {
+function stv_get_all_results($ssids, $year = '', $fel = '') {
     global $DB, $CFG;
     if (empty($ssids)) {
         return [];
     }
     $statetable = $CFG->prefix . 'NTstatetesting';
-    list($insql, $params) = $DB->get_in_or_equal($ssids, SQL_PARAMS_NAMED, 'ssid');
+    [$insql, $params] = $DB->get_in_or_equal($ssids, SQL_PARAMS_NAMED, 'ssid');
     $where = "ssid $insql";
     if ($year !== '') {
         $where          .= ' AND year = :year';
         $params['year']  = $year;
     }
-    if ($f_el !== '') {
+    if ($fel !== '') {
         $where          .= ' AND el_code = :el';
-        $params['el']    = $f_el;
+        $params['el']    = $fel;
     }
-    $where .= " AND proficiency_level IS NOT NULL 
-                AND proficiency_level != '' 
+    $where .= " AND proficiency_level IS NOT NULL
+                AND proficiency_level != ''
                 AND proficiency_level != 'Untested'";
 
     return $DB->get_records_sql(
@@ -347,6 +390,9 @@ function stv_get_all_results($ssids, $year = '', $f_el = '') {
 /**
  * From a result set, build per-subject data:
  * [ subject_description => [ 'scores' => [], 'proflevels' => [] ] ]
+ *
+ * @param array $results State test result records.
+ * @return array Per-subject data keyed by subject description.
  */
 function stv_by_subject($results) {
     $data = [];
@@ -366,6 +412,9 @@ function stv_by_subject($results) {
 
 /**
  * Compute proficiency distribution counts from results.
+ *
+ * @param array $results State test result records.
+ * @return array Map of proficiency level => count (zero counts removed).
  */
 function stv_prof_counts($results) {
     $levels = ['Advanced' => 0, 'Accomplished' => 0, 'Proficient' => 0,
@@ -381,11 +430,39 @@ function stv_prof_counts($results) {
 
 /**
  * Render the filter form.
+ *
+ * @param stdClass $cm           Course module.
+ * @param string   $tab          Current tab.
+ * @param string   $year         Selected school year.
+ * @param array    $yearoptions  School years to offer.
+ * @param array    $allstudents  Students for the student selector.
+ * @param int      $studuserid   Selected student user id (0 = none).
+ * @param string   $fgender      Gender filter ('' = any).
+ * @param string   $frace        Race filter ('' = any).
+ * @param string   $fed          Economically disadvantaged filter ('' = any).
+ * @param string   $fswd         Students with disabilities filter ('' = any).
+ * @param string   $fel          English learner filter ('' = any).
+ * @param string   $f504         504 plan filter ('' = any).
+ * @param string   $fiep         IEP filter ('' = any).
+ * @param string   $fgifted      Gifted filter ('' = any).
+ * @return string Form HTML.
  */
-function stv_render_filters($cm, $tab, $year, $yearoptions,
-                             $allstudents, $studuserid,
-                             $f_gender, $f_race, $f_ed, $f_swd,
-                             $f_el, $f_504, $f_iep, $f_gifted) {
+function stv_render_filters(
+    $cm,
+    $tab,
+    $year,
+    $yearoptions,
+    $allstudents,
+    $studuserid,
+    $fgender,
+    $frace,
+    $fed,
+    $fswd,
+    $fel,
+    $f504,
+    $fiep,
+    $fgifted
+) {
 
     $out = '';
     $out .= html_writer::start_tag('form', [
@@ -393,26 +470,32 @@ function stv_render_filters($cm, $tab, $year, $yearoptions,
         'action' => (new moodle_url('/mod/mtssdashboard/view.php'))->out(false),
         'class'  => 'mtssdashboard-filters card card-body mb-3 p-2',
     ]);
-    $out .= html_writer::empty_tag('input', ['type'=>'hidden','name'=>'id',  'value'=>$cm->id]);
-    $out .= html_writer::empty_tag('input', ['type'=>'hidden','name'=>'tab', 'value'=>$tab]);
+    $out .= html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'id', 'value' => $cm->id]);
+    $out .= html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'tab', 'value' => $tab]);
     $out .= html_writer::start_div('row g-2 align-items-end');
 
     // Year — hidden on the student tab (trend chart always shows all years).
     if ($tab !== 'student') {
-        $out .= stv_filter_select('year', get_string('filter_year','mod_mtssdashboard'),
-            ['' => get_string('filter_all','mod_mtssdashboard')] + $yearoptions, $year);
+        $out .= stv_filter_select(
+            'year',
+            get_string('filter_year', 'mod_mtssdashboard'),
+            ['' => get_string('filter_all', 'mod_mtssdashboard')] + $yearoptions,
+            $year
+        );
     }
 
     // Student (student tab only) — auto-submits on change, no buttons needed.
     if ($tab === 'student') {
-        $stopts = [0 => '— ' . get_string('selectstudent','mod_mtssdashboard') . ' —'];
+        $stopts = [0 => '— ' . get_string('selectstudent', 'mod_mtssdashboard') . ' —'];
         foreach ($allstudents as $s) {
             $stopts[$s->userid] = $s->lastname . ', ' . $s->firstname;
         }
         $out .= html_writer::start_div('col-auto');
-        $out .= html_writer::tag('label',
+        $out .= html_writer::tag(
+            'label',
             get_string('filter_student', 'mod_mtssdashboard'),
-            ['for' => 'stv_studuserid', 'class' => 'form-label small mb-0']);
+            ['for' => 'stv_studuserid', 'class' => 'form-label small mb-0']
+        );
         $out .= html_writer::start_tag('select', [
             'name'     => 'studuserid',
             'id'       => 'stv_studuserid',
@@ -433,25 +516,32 @@ function stv_render_filters($cm, $tab, $year, $yearoptions,
     // Demographic filters — hidden on the student tab (single student view).
     if ($tab !== 'student') {
         $ynopts = ['' => '—', 'Y' => 'Yes', 'N' => 'No'];
-        $out .= stv_filter_select('f_gender', get_string('filter_gender','mod_mtssdashboard'),
-            ['' => '—', 'M' => 'Male', 'F' => 'Female'], $f_gender);
-        $out .= stv_filter_select('f_ed',     get_string('filter_ed',    'mod_mtssdashboard'), $ynopts, $f_ed);
-        $out .= stv_filter_select('f_swd',    get_string('filter_swd',   'mod_mtssdashboard'), $ynopts, $f_swd);
-        $out .= stv_filter_select('f_iep',    get_string('filter_iep',   'mod_mtssdashboard'), $ynopts, $f_iep);
-        $out .= stv_filter_select('f_504',    get_string('filter_504',   'mod_mtssdashboard'), $ynopts, $f_504);
-        $out .= stv_filter_select('f_gifted', get_string('filter_gifted','mod_mtssdashboard'), $ynopts, $f_gifted);
+        $out .= stv_filter_select(
+            'f_gender',
+            get_string('filter_gender', 'mod_mtssdashboard'),
+            ['' => '—', 'M' => 'Male', 'F' => 'Female'],
+            $fgender
+        );
+        $out .= stv_filter_select('f_ed', get_string('filter_ed', 'mod_mtssdashboard'), $ynopts, $fed);
+        $out .= stv_filter_select('f_swd', get_string('filter_swd', 'mod_mtssdashboard'), $ynopts, $fswd);
+        $out .= stv_filter_select('f_iep', get_string('filter_iep', 'mod_mtssdashboard'), $ynopts, $fiep);
+        $out .= stv_filter_select('f_504', get_string('filter_504', 'mod_mtssdashboard'), $ynopts, $f504);
+        $out .= stv_filter_select('f_gifted', get_string('filter_gifted', 'mod_mtssdashboard'), $ynopts, $fgifted);
     }
 
     // Buttons — hidden on student tab (dropdown auto-submits).
     if ($tab !== 'student') {
         $out .= html_writer::start_div('col-auto');
-        $out .= html_writer::tag('button', get_string('applyfilters','mod_mtssdashboard'),
-            ['type'=>'submit','class'=>'btn btn-primary btn-sm']);
+        $out .= html_writer::tag(
+            'button',
+            get_string('applyfilters', 'mod_mtssdashboard'),
+            ['type' => 'submit', 'class' => 'btn btn-primary btn-sm']
+        );
         $out .= ' ';
         $out .= html_writer::link(
-            new moodle_url('/mod/mtssdashboard/view.php', ['id'=>$cm->id,'tab'=>$tab]),
-            get_string('resetfilters','mod_mtssdashboard'),
-            ['class'=>'btn btn-secondary btn-sm']
+            new moodle_url('/mod/mtssdashboard/view.php', ['id' => $cm->id, 'tab' => $tab]),
+            get_string('resetfilters', 'mod_mtssdashboard'),
+            ['class' => 'btn btn-secondary btn-sm']
         );
         $out .= html_writer::end_div();
     }
@@ -462,13 +552,24 @@ function stv_render_filters($cm, $tab, $year, $yearoptions,
 
 /**
  * Render a single filter select element.
+ *
+ * @param string $name     Form field name.
+ * @param string $label    Label shown above the select.
+ * @param array  $options  Map of value => label.
+ * @param string $selected Currently selected value.
+ * @return string Select HTML.
  */
 function stv_filter_select($name, $label, $options, $selected) {
     $out  = html_writer::start_div('col-auto');
-    $out .= html_writer::tag('label', $label,
-        ['for' => 'stv_'.$name, 'class' => 'form-label small mb-0']);
-    $out .= html_writer::start_tag('select',
-        ['name'=>$name, 'id'=>'stv_'.$name, 'class'=>'form-select form-select-sm']);
+    $out .= html_writer::tag(
+        'label',
+        $label,
+        ['for' => 'stv_' . $name, 'class' => 'form-label small mb-0']
+    );
+    $out .= html_writer::start_tag(
+        'select',
+        ['name' => $name, 'id' => 'stv_' . $name, 'class' => 'form-select form-select-sm']
+    );
     foreach ($options as $val => $lbl) {
         $attrs = ['value' => $val];
         // Loose comparison intentional for int/string mixed keys.
@@ -484,11 +585,18 @@ function stv_filter_select($name, $label, $options, $selected) {
 
 /**
  * Render one subject doughnut chart (proficiency distribution for that subject).
+ *
+ * @param string $canvasid          HTML id for the chart canvas.
+ * @param string $title             Chart title.
+ * @param array  $resultsforsubject Result records for this subject.
+ * @param array  $profcolors        Map of proficiency level => colour.
+ * @param int    $totalsubjects     Number of charts in the row (sets the width).
+ * @return array ['html' => string, 'js' => string].
  */
-function stv_subject_chart($canvasid, $title, $results_for_subject, $profcolors, $totalsubjects = 3) {
+function stv_subject_chart($canvasid, $title, $resultsforsubject, $profcolors, $totalsubjects = 3) {
     // Count proficiency levels for this subject.
     $counts = [];
-    foreach ($results_for_subject as $r) {
+    foreach ($resultsforsubject as $r) {
         $pl = $r->proficiency_level ?? 'Not Reported';
         if (!isset($counts[$pl])) {
             $counts[$pl] = 0;
@@ -588,6 +696,10 @@ JS;
 
 /**
  * Render collapsed data table.
+ *
+ * @param array $results  State test result records.
+ * @param array $students Students keyed for name lookup.
+ * @return string Table HTML.
  */
 function stv_render_table($results, $students) {
     global $OUTPUT;
@@ -597,28 +709,32 @@ function stv_render_table($results, $students) {
     }
 
     // Sort by student lastname, firstname, then subject, then year.
-    usort($results, function($a, $b) use ($ssidmap) {
+    usort($results, function ($a, $b) use ($ssidmap) {
         $sa = $ssidmap[$a->ssid] ?? null;
         $sb = $ssidmap[$b->ssid] ?? null;
         $namediff = strcmp(
             ($sa ? $sa->lastname . $sa->firstname : $a->ssid),
             ($sb ? $sb->lastname . $sb->firstname : $b->ssid)
         );
-        if ($namediff !== 0) return $namediff;
+        if ($namediff !== 0) {
+            return $namediff;
+        }
         // Most recent year first.
         $yeardiff = strcmp($b->year, $a->year);
-        if ($yeardiff !== 0) return $yeardiff;
+        if ($yeardiff !== 0) {
+            return $yeardiff;
+        }
         // Then alphabetical by subject.
         return strcmp($a->subject_description, $b->subject_description);
     });
 
     $table = new html_table();
     $table->head = [
-        get_string('th_student',     'mod_mtssdashboard'),
-        get_string('th_year',        'mod_mtssdashboard'),
-        get_string('th_subject',     'mod_mtssdashboard'),
-        get_string('th_grade',       'mod_mtssdashboard'),
-        get_string('th_score',       'mod_mtssdashboard'),
+        get_string('th_student', 'mod_mtssdashboard'),
+        get_string('th_year', 'mod_mtssdashboard'),
+        get_string('th_subject', 'mod_mtssdashboard'),
+        get_string('th_grade', 'mod_mtssdashboard'),
+        get_string('th_score', 'mod_mtssdashboard'),
         get_string('th_proficiency', 'mod_mtssdashboard'),
     ];
     $table->attributes['class'] = 'generaltable table-sm table-hover';
@@ -664,9 +780,8 @@ function stv_render_table($results, $students) {
     return $out;
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// OUTPUT
-// ═══════════════════════════════════════════════════════════════════════════════
+// ----------------------------------------------------------------------
+// OUTPUT.
 if ($tab === 'group') {
     $tabstudents = $allstudents;
 } else if ($tab === 'student') {
@@ -674,137 +789,182 @@ if ($tab === 'group') {
 } else if ($tab === 'grades') {
     if ($groupid > 0) {
         $gmids = array_keys(groups_get_members($groupid, 'u.id'));
-        $tabstudents = array_filter($allstudents,
-            fn($s) => in_array($s->userid, $gmids));
+        $tabstudents = array_filter(
+            $allstudents,
+            fn($s) => in_array($s->userid, $gmids)
+        );
     } else {
         $tabstudents = $allstudents;
     }
 } else {
     if ($groupid > 0) {
         $gmids = array_keys(groups_get_members($groupid, 'u.id'));
-        $tabstudents = array_filter($allstudents,
-            fn($s) => in_array($s->userid, $gmids));
+        $tabstudents = array_filter(
+            $allstudents,
+            fn($s) => in_array($s->userid, $gmids)
+        );
     } else {
         $tabstudents = $allstudents;
     }
 }
 
-// ── CSV download handler: Early Warning tab ───────────────────────────────────
-if (optional_param('action', '', PARAM_ALPHANUMEXT) === 'downloadcsv'
-        && $tab === 'earlywarning') {
+// CSV download handler: Early Warning tab.
+if (
+    optional_param('action', '', PARAM_ALPHANUMEXT) === 'downloadcsv'
+        && $tab === 'earlywarning'
+) {
     require_once($CFG->libdir . '/gradelib.php');
 }
-if (optional_param('action', '', PARAM_ALPHANUMEXT) === 'downloadcsv'
-        && $tab === 'earlywarning') {
+if (
+    optional_param('action', '', PARAM_ALPHANUMEXT) === 'downloadcsv'
+        && $tab === 'earlywarning'
+) {
     require_sesskey();
     $schoollevel = stv_get_school_level_for_course($course);
-    $ewstudents = stv_filter_students($tabstudents, $f_gender, $f_race, $f_ed,
-                                      $f_swd, $f_el, $f_504, $f_iep, $f_gifted);
-    $userids = []; $studentnumbers = []; $ssids = [];
+    $ewstudents = stv_filter_students(
+        $tabstudents,
+        $fgender,
+        $frace,
+        $fed,
+        $fswd,
+        $fel,
+        $f504,
+        $fiep,
+        $fgifted
+    );
+    $userids = [];
+    $studentnumbers = [];
+    $ssids = [];
     foreach ($ewstudents as $s) {
         $userids[] = (int) $s->userid;
-        if (!empty($s->idnumber)) { $studentnumbers[] = (int) $s->idnumber; }
-        if (!empty($s->ssid))     { $ssids[] = $s->ssid; }
+        if (!empty($s->idnumber)) {
+            $studentnumbers[] = (int) $s->idnumber;
+        }
+        if (!empty($s->ssid)) {
+            $ssids[] = $s->ssid;
+        }
     }
     $incidents  = stv_get_office_incidents_by_studentnumber($studentnumbers);
     $attendance = stv_get_attendance_by_studentnumber($studentnumbers);
     $failed     = stv_get_failed_courses_by_userid($userids);
     $gpas       = stv_get_gpa_by_userid($userids, $schoollevel);
     $lowost     = stv_get_low_ost_by_ssid($ssids);
-    $iready_ela = stv_get_iready_ela_by_studentnumber($studentnumbers);
-    $iready_mth = stv_get_iready_math_by_studentnumber($studentnumbers);
-    $iready_days = ($schoollevel === 'ms') ? stv_get_iready_days_since_lesson($studentnumbers) : [];
+    $ireadyela = stv_get_iready_ela_by_studentnumber($studentnumbers);
+    $ireadymth = stv_get_iready_math_by_studentnumber($studentnumbers);
+    $ireadydays = ($schoollevel === 'ms') ? stv_get_iready_days_since_lesson($studentnumbers) : [];
     $rimpdata   = stv_get_rimp_by_studentnumber($studentnumbers);
     if ($schoollevel === 'es') {
-        $metrickeys = ['total_hours_missed','unexcused_hours_missed',
-            'iready_ela_percentile','iready_math_percentile','ost_performance'];
+        $metrickeys = ['total_hours_missed', 'unexcused_hours_missed',
+            'iready_ela_percentile', 'iready_math_percentile', 'ost_performance'];
     } else if ($schoollevel === 'ms') {
-        $metrickeys = ['total_hours_missed','unexcused_hours_missed','office_incidents',
-            'course_failure_count','gpa','iready_ela_percentile','iready_ela_days',
-            'iready_math_percentile','iready_math_days','ost_performance'];
+        $metrickeys = ['total_hours_missed', 'unexcused_hours_missed', 'office_incidents',
+            'course_failure_count', 'gpa', 'iready_ela_percentile', 'iready_ela_days',
+            'iready_math_percentile', 'iready_math_days', 'ost_performance'];
     } else {
-        $metrickeys = ['total_hours_missed','unexcused_hours_missed','office_incidents',
-            'course_failure_count','gpa','ost_performance'];
+        $metrickeys = ['total_hours_missed', 'unexcused_hours_missed', 'office_incidents',
+            'course_failure_count', 'gpa', 'ost_performance'];
     }
     $colheaders = [
-        'total_hours_missed'=>'Total Hours Missed','unexcused_hours_missed'=>'Unexcused Hours',
-        'office_incidents'=>'Office Incidents','course_failure_count'=>'Failing Courses',
-        'gpa'=>'Current GPA','iready_ela_percentile'=>'iReady ELA Percentile',
-        'iready_math_percentile'=>'iReady Math Percentile','ost_performance'=>'Low OST Scores',
-        'iready_ela_days'=>'Days Since ELA Lesson','iready_math_days'=>'Days Since Math Lesson',
+        'total_hours_missed' => 'Total Hours Missed', 'unexcused_hours_missed' => 'Unexcused Hours',
+        'office_incidents' => 'Office Incidents', 'course_failure_count' => 'Failing Courses',
+        'gpa' => 'Current GPA', 'iready_ela_percentile' => 'iReady ELA Percentile',
+        'iready_math_percentile' => 'iReady Math Percentile', 'ost_performance' => 'Low OST Scores',
+        'iready_ela_days' => 'Days Since ELA Lesson', 'iready_math_days' => 'Days Since Math Lesson',
     ];
     $rows = [];
     foreach ($ewstudents as $s) {
-        $sn=$s->idnumber?(int)$s->idnumber:0; $uid=(int)$s->userid; $sid=$s->ssid??'';
-        $row=(object)['userid'=>$uid,'studentnumber'=>$sn,'firstname'=>$s->firstname,
-            'lastname'=>$s->lastname,'gradelevel'=>$s->gradelevel??'',
-            'metrics'=>['total_hours_missed'=>null,'unexcused_hours_missed'=>null,
-                'office_incidents'=>$incidents[$sn]??0,'course_failure_count'=>$failed[$uid]??0,
-                'gpa'=>$gpas[$uid]??null,'iready_ela_percentile'=>$iready_ela[$sn]??null,
-                'iready_math_percentile'=>$iready_mth[$sn]??null,'ost_performance'=>$lowost[$sid]??0,
-                'iready_ela_days'=>$iready_days[$sn]->ela_days??null,
-                'iready_math_days'=>$iready_days[$sn]->math_days??null]];
+        $sn = $s->idnumber ? (int)$s->idnumber : 0;
+        $uid = (int)$s->userid;
+        $sid = $s->ssid ?? '';
+        $row = (object)['userid' => $uid, 'studentnumber' => $sn, 'firstname' => $s->firstname,
+            'lastname' => $s->lastname, 'gradelevel' => $s->gradelevel ?? '',
+            'metrics' => ['total_hours_missed' => null, 'unexcused_hours_missed' => null,
+                'office_incidents' => $incidents[$sn] ?? 0, 'course_failure_count' => $failed[$uid] ?? 0,
+                'gpa' => $gpas[$uid] ?? null, 'iready_ela_percentile' => $ireadyela[$sn] ?? null,
+                'iready_math_percentile' => $ireadymth[$sn] ?? null, 'ost_performance' => $lowost[$sid] ?? 0,
+                'iready_ela_days' => $ireadydays[$sn]->ela_days ?? null,
+                'iready_math_days' => $ireadydays[$sn]->math_days ?? null]];
         if (isset($attendance[$sn])) {
-            $row->metrics['total_hours_missed']=$attendance[$sn]->total_hours;
-            $row->metrics['unexcused_hours_missed']=$attendance[$sn]->unexcused_hours;
+            $row->metrics['total_hours_missed'] = $attendance[$sn]->total_hours;
+            $row->metrics['unexcused_hours_missed'] = $attendance[$sn]->unexcused_hours;
         }
         // Blank lesson-days for grades (or RIMP students in grades) that don't
         // take iReady lessons (Warning Levels toggles).
-        $row->metrics=stv_apply_lessons_off($row->metrics,$row->gradelevel,$schoollevel,
-            !empty($rimpdata[$sn]));
-        $rows[]=$row;
+        $row->metrics = stv_apply_lessons_off(
+            $row->metrics,
+            $row->gradelevel,
+            $schoollevel,
+            !empty($rimpdata[$sn])
+        );
+        $rows[] = $row;
     }
-    $ewsortcsv=optional_param('ewsort','name',PARAM_ALPHA);
+    $ewsortcsv = optional_param('ewsort', 'name', PARAM_ALPHA);
     foreach ($rows as $row) {
-        $flagcount=0;
+        $flagcount = 0;
         foreach ($metrickeys as $mkey) {
-            $value=$row->metrics[$mkey]; if ($value===null) { continue; }
-            $color=stv_get_band_color($schoollevel,$mkey,$value);
-            if (stv_band_is_flagged($color)) { $flagcount++; }
+            $value = $row->metrics[$mkey];
+            if ($value === null) {
+                continue;
+            }
+            $color = stv_get_band_color($schoollevel, $mkey, $value);
+            if (stv_band_is_flagged($color)) {
+                $flagcount++;
+            }
         }
-        $row->riskkey=stv_compute_risk_level($flagcount,$schoollevel);
-        $row->flagcount=$flagcount;
+        $row->riskkey = stv_compute_risk_level($flagcount, $schoollevel);
+        $row->flagcount = $flagcount;
     }
-    if ($ewsortcsv==='risk') {
-        $riskrank=['extreme'=>0,'moderate'=>1,'low'=>2,'none'=>3];
-        usort($rows,function($a,$b) use ($riskrank) {
-            $ra=$riskrank[$a->riskkey]??99; $rb=$riskrank[$b->riskkey]??99;
-            if ($ra!==$rb) { return $ra-$rb; }
-            $lc=strcasecmp($a->lastname,$b->lastname);
-            return $lc!==0?$lc:strcasecmp($a->firstname,$b->firstname);
+    if ($ewsortcsv === 'risk') {
+        $riskrank = ['extreme' => 0, 'moderate' => 1, 'low' => 2, 'none' => 3];
+        usort($rows, function ($a, $b) use ($riskrank) {
+            $ra = $riskrank[$a->riskkey] ?? 99;
+            $rb = $riskrank[$b->riskkey] ?? 99;
+            if ($ra !== $rb) {
+                return $ra - $rb;
+            }
+            $lc = strcasecmp($a->lastname, $b->lastname);
+            return $lc !== 0 ? $lc : strcasecmp($a->firstname, $b->firstname);
         });
     } else {
-        usort($rows,function($a,$b) {
-            $lc=strcasecmp($a->lastname,$b->lastname);
-            return $lc!==0?$lc:strcasecmp($a->firstname,$b->firstname);
+        usort($rows, function ($a, $b) {
+            $lc = strcasecmp($a->lastname, $b->lastname);
+            return $lc !== 0 ? $lc : strcasecmp($a->firstname, $b->firstname);
         });
     }
-    $risklabels=['none'=>'No Risk','low'=>'Low Risk','moderate'=>'Moderate Risk','extreme'=>'Extreme Risk'];
-    $filename=clean_filename($course->shortname.'_earlywarning_'.date('Ymd').'.csv');
+    $risklabels = ['none' => 'No Risk', 'low' => 'Low Risk', 'moderate' => 'Moderate Risk', 'extreme' => 'Extreme Risk'];
+    $filename = clean_filename($course->shortname . '_earlywarning_' . date('Ymd') . '.csv');
     header('Content-Type: text/csv; charset=utf-8');
-    header('Content-Disposition: attachment; filename="'.$filename.'"');
-    header('Pragma: no-cache'); header('Expires: 0');
-    $out=fopen('php://output','w');
-    fputs($out,"\xEF\xBB\xBF");
-    $csvheader=['Grade','Student ID','Last Name','First Name','Overall Risk'];
-    foreach ($metrickeys as $mkey) { $csvheader[]=$colheaders[$mkey]??$mkey; }
-    fputcsv($out,$csvheader);
-    foreach ($rows as $row) {
-        $csvrow=[$row->gradelevel,$row->studentnumber>0?$row->studentnumber:'',
-            $row->lastname,$row->firstname,$risklabels[$row->riskkey]??$row->riskkey];
-        foreach ($metrickeys as $mkey) {
-            $value=$row->metrics[$mkey];
-            if ($value===null) { $csvrow[]=''; }
-            else if (in_array($mkey,['iready_ela_days','iready_math_days'],true) && (int)$value===99) {
-                $csvrow[]='Never'; }
-            else if ($mkey==='gpa') { $csvrow[]=number_format((float)$value,3); }
-            else if (in_array($mkey,['total_hours_missed','unexcused_hours_missed'],true)) {
-                $csvrow[]=number_format((float)$value,2); }
-            else { $csvrow[]=(int)$value; }
-        }
-        fputcsv($out,$csvrow);
+    header('Content-Disposition: attachment; filename="' . $filename . '"');
+    header('Pragma: no-cache');
+    header('Expires: 0');
+    $out = fopen('php://output', 'w');
+    fputs($out, "\xEF\xBB\xBF");
+    $csvheader = ['Grade', 'Student ID', 'Last Name', 'First Name', 'Overall Risk'];
+    foreach ($metrickeys as $mkey) {
+        $csvheader[] = $colheaders[$mkey] ?? $mkey;
     }
-    fclose($out); exit;
+    fputcsv($out, $csvheader);
+    foreach ($rows as $row) {
+        $csvrow = [$row->gradelevel, $row->studentnumber > 0 ? $row->studentnumber : '',
+            $row->lastname, $row->firstname, $risklabels[$row->riskkey] ?? $row->riskkey];
+        foreach ($metrickeys as $mkey) {
+            $value = $row->metrics[$mkey];
+            if ($value === null) {
+                $csvrow[] = '';
+            } else if (in_array($mkey, ['iready_ela_days', 'iready_math_days'], true) && (int)$value === 99) {
+                $csvrow[] = 'Never';
+            } else if ($mkey === 'gpa') {
+                $csvrow[] = number_format((float)$value, 3);
+            } else if (in_array($mkey, ['total_hours_missed', 'unexcused_hours_missed'], true)) {
+                $csvrow[] = number_format((float)$value, 2);
+            } else {
+                $csvrow[] = (int)$value;
+            }
+        }
+        fputcsv($out, $csvrow);
+    }
+    fclose($out);
+    exit;
 }
 
 // Bulk print handler: Download RIMPs / Download WEPs.
@@ -821,14 +981,14 @@ if ($isbulkrimp || $isbulkwep) {
 
     $bulkstudents = stv_filter_students(
         $tabstudents,
-        $f_gender,
-        $f_race,
-        $f_ed,
-        $f_swd,
-        $f_el,
-        $f_504,
-        $f_iep,
-        $f_gifted
+        $fgender,
+        $frace,
+        $fed,
+        $fswd,
+        $fel,
+        $f504,
+        $fiep,
+        $fgifted
     );
     // Leave out CTC (J/NJ) and no-longer-attending (I/R) students.
     $bulkstudents = mtssdashboard_remove_skipped_students($bulkstudents);
@@ -895,61 +1055,91 @@ if (empty($allstudents)) {
 $baseurl = new moodle_url('/mod/mtssdashboard/view.php', ['id' => $cm->id]);
 $tabs = [];
 
-// schoollevel is needed here for the RIMPS tab check. It is also set
+// Schoollevel is needed here for the RIMPS tab check. It is also set
 // independently inside each tab's rendering block below.
 if (!isset($schoollevel)) {
     $schoollevel = stv_get_school_level_for_course($course);
 }
 
 // Early Warning and common tabs shown at all levels.
-$tabs[] = new tabobject('earlywarning', new moodle_url($baseurl, ['tab'=>'earlywarning']),
-    get_string('tab_earlywarning', 'mod_mtssdashboard'));
+$tabs[] = new tabobject(
+    'earlywarning',
+    new moodle_url($baseurl, ['tab' => 'earlywarning']),
+    get_string('tab_earlywarning', 'mod_mtssdashboard')
+);
 
 // Student Info tab — shown second, right after Early Warning.
-$tabs[] = new tabobject('student', new moodle_url($baseurl, ['tab'=>'student']),
-    get_string('tab_student', 'mod_mtssdashboard'));
+$tabs[] = new tabobject(
+    'student',
+    new moodle_url($baseurl, ['tab' => 'student']),
+    get_string('tab_student', 'mod_mtssdashboard')
+);
 
 // Grades tab — HS and MS only.
 if (in_array($schoollevel, ['hs', 'ms'])) {
-    $tabs[] = new tabobject('grades', new moodle_url($baseurl, ['tab'=>'grades']),
-        get_string('tab_grades', 'mod_mtssdashboard'));
+    $tabs[] = new tabobject(
+        'grades',
+        new moodle_url($baseurl, ['tab' => 'grades']),
+        get_string('tab_grades', 'mod_mtssdashboard')
+    );
 }
 
 foreach (['class', 'subjecthistory'] as $t) {
-    $tabs[] = new tabobject($t, new moodle_url($baseurl, ['tab'=>$t]),
-        get_string('tab_'.$t, 'mod_mtssdashboard'));
+    $tabs[] = new tabobject(
+        $t,
+        new moodle_url($baseurl, ['tab' => $t]),
+        get_string('tab_' . $t, 'mod_mtssdashboard')
+    );
 }
 
 // History tab — HS and MS only.
 if (in_array($schoollevel, ['hs', 'ms'])) {
-    $tabs[] = new tabobject('history', new moodle_url($baseurl, ['tab'=>'history']),
-        get_string('tab_history', 'mod_mtssdashboard'));
+    $tabs[] = new tabobject(
+        'history',
+        new moodle_url($baseurl, ['tab' => 'history']),
+        get_string('tab_history', 'mod_mtssdashboard')
+    );
 }
 
 // Warning Levels tab — all levels, all teachers.
-$tabs[] = new tabobject('warning', new moodle_url($baseurl, ['tab'=>'warning']),
-    get_string('tab_warning', 'mod_mtssdashboard'));
+$tabs[] = new tabobject(
+    'warning',
+    new moodle_url($baseurl, ['tab' => 'warning']),
+    get_string('tab_warning', 'mod_mtssdashboard')
+);
 
 // RIMP tab — any teacher in any course.
 if (has_capability('mod/mtssdashboard:editrimp', $context)) {
-    $tabs[] = new tabobject('rimp', new moodle_url($baseurl, ['tab'=>'rimp']),
-        get_string('tab_rimp', 'mod_mtssdashboard'));
+    $tabs[] = new tabobject(
+        'rimp',
+        new moodle_url($baseurl, ['tab' => 'rimp']),
+        get_string('tab_rimp', 'mod_mtssdashboard')
+    );
 }
 
 // WEP tab — any teacher in any course.
 if (has_capability('mod/mtssdashboard:editwep', $context)) {
-    $tabs[] = new tabobject('wep', new moodle_url($baseurl, ['tab'=>'wep']),
-        get_string('tab_wep', 'mod_mtssdashboard'));
+    $tabs[] = new tabobject(
+        'wep',
+        new moodle_url($baseurl, ['tab' => 'wep']),
+        get_string('tab_wep', 'mod_mtssdashboard')
+    );
 }
 
 // Plans tab — all levels, all teachers.
-$tabs[] = new tabobject('plans', new moodle_url($baseurl, ['tab'=>'plans']),
-    get_string('tab_plans', 'mod_mtssdashboard'));
+$tabs[] = new tabobject(
+    'plans',
+    new moodle_url($baseurl, ['tab' => 'plans']),
+    get_string('tab_plans', 'mod_mtssdashboard')
+);
 
 // Grade Updates tab — HS and MS only, managers only.
 if (in_array($schoollevel, ['hs', 'ms']) && stv_can_edit_warning_levels($course, $schoollevel)) {
-    $tabs[] = new tabobject('gradeupdates', new moodle_url($baseurl, ['tab'=>'gradeupdates']),
-        get_string('tab_gradeupdates', 'mod_mtssdashboard'));
+    $tabs[] = new tabobject(
+        'gradeupdates',
+        new moodle_url($baseurl, ['tab' => 'gradeupdates']),
+        get_string('tab_gradeupdates', 'mod_mtssdashboard')
+    );
 }
 echo $OUTPUT->tabtree($tabs, $tab);
 
@@ -965,24 +1155,41 @@ if ($tab !== 'warning') {
     $dropdownstudents = $allstudents;
     if ($tab === 'student' && $groupid > 0) {
         $gmids = array_keys(groups_get_members($groupid, 'u.id'));
-        $dropdownstudents = array_filter($allstudents,
-            fn($s) => in_array($s->userid, $gmids));
+        $dropdownstudents = array_filter(
+            $allstudents,
+            fn($s) => in_array($s->userid, $gmids)
+        );
     }
-    echo stv_render_filters($cm, $tab, $year, $yearoptions,
-        $dropdownstudents, $studuserid, $f_gender, $f_race, $f_ed,
-        $f_swd, $f_el, $f_504, $f_iep, $f_gifted);
+    echo stv_render_filters(
+        $cm,
+        $tab,
+        $year,
+        $yearoptions,
+        $dropdownstudents,
+        $studuserid,
+        $fgender,
+        $frace,
+        $fed,
+        $fswd,
+        $fel,
+        $f504,
+        $fiep,
+        $fgifted
+    );
 }
 
-// ── Determine student set for this tab ───────────────────────────────────────
+// Determine student set for this tab.
 if ($tab === 'group') {
     $tabstudents = $allstudents; // Group tab — demographic filter applied inside tab block.
 } else if ($tab === 'student') {
-    $tabstudents = $allstudents; // handled individually below.
+    $tabstudents = $allstudents; // Handled individually below.
 } else if ($tab === 'grades') {
     if ($groupid > 0) {
         $gmids = array_keys(groups_get_members($groupid, 'u.id'));
-        $tabstudents = array_filter($allstudents,
-            fn($s) => in_array($s->userid, $gmids));
+        $tabstudents = array_filter(
+            $allstudents,
+            fn($s) => in_array($s->userid, $gmids)
+        );
     } else {
         $tabstudents = $allstudents;
     }
@@ -990,19 +1197,29 @@ if ($tab === 'group') {
     // Apply Moodle group filter to class view.
     if ($groupid > 0) {
         $gmids = array_keys(groups_get_members($groupid, 'u.id'));
-        $tabstudents = array_filter($allstudents,
-            fn($s) => in_array($s->userid, $gmids));
+        $tabstudents = array_filter(
+            $allstudents,
+            fn($s) => in_array($s->userid, $gmids)
+        );
     } else {
         $tabstudents = $allstudents;
     }
 }
 
-// ═══════════════════
-// CLASS VIEW & GROUP VIEW
+// ----------------------------------------------------------------------
+// CLASS VIEW & GROUP VIEW.
 if ($tab === 'class' || $tab === 'group') {
-
-    $students = stv_filter_students($tabstudents, $f_gender, $f_race, $f_ed,
-                                    $f_swd, $f_el, $f_504, $f_iep, $f_gifted);
+    $students = stv_filter_students(
+        $tabstudents,
+        $fgender,
+        $frace,
+        $fed,
+        $fswd,
+        $fel,
+        $f504,
+        $fiep,
+        $fgifted
+    );
 
     if (empty($students)) {
         echo $OUTPUT->notification(get_string('nostudentdata', 'mod_mtssdashboard'), 'notifywarning');
@@ -1011,11 +1228,15 @@ if ($tab === 'class' || $tab === 'group') {
     }
 
     $ssids   = array_column($students, 'ssid');
-    $allresults = stv_get_results($ssids, $year, $f_el);
+    $allresults = stv_get_results($ssids, $year, $fel);
 
     // Filter to current school level only.
     $results = mtssdashboard_filter_by_grade_range(
-        $allresults, $students, $cur_min, $cur_max, $levelcfg->gradyear
+        $allresults,
+        $students,
+        $curmin,
+        $curmax,
+        $levelcfg->gradyear
     );
 
     if (empty($results)) {
@@ -1042,9 +1263,11 @@ if ($tab === 'class' || $tab === 'group') {
         : get_string('filter_all', 'mod_mtssdashboard');
     echo $OUTPUT->heading(
         get_string('tab_' . $tab, 'mod_mtssdashboard') . ' — ' .
-        $headlabel . ' — ' . $year, 4);
+        $headlabel . ' — ' . $year,
+        4
+    );
 
-    // ── Charts ────────────────────────────────────────────────────────────────
+    // Charts.
     $alljs = '';
 
     // Overall proficiency distribution doughnut + totals table.
@@ -1052,22 +1275,28 @@ if ($tab === 'class' || $tab === 'group') {
 
     // Left col: doughnut chart fixed width.
     echo html_writer::start_div('col-md-6');
-    echo html_writer::tag('h5', get_string('chart_proficiency', 'mod_mtssdashboard'),
-        ['class' => 'text-center']);
+    echo html_writer::tag(
+        'h5',
+        get_string('chart_proficiency', 'mod_mtssdashboard'),
+        ['class' => 'text-center']
+    );
     echo html_writer::tag('canvas', '', ['id' => 'chartProfDist', 'style' => 'max-height:320px;']);
     echo html_writer::end_div();
 
     // Right col: totals table.
     echo html_writer::start_div('col-md-5');
-$studentcount = count(array_unique(array_column($students, 'ssid')));
+    $studentcount = count(array_unique(array_column($students, 'ssid')));
     echo html_writer::tag('h5', get_string('prof_totals', 'mod_mtssdashboard'), ['class' => 'text-center']);
-    echo html_writer::tag('p', get_string('prof_totalstudents', 'mod_mtssdashboard') . ': ' . $studentcount,
-        ['class' => 'text-center text-muted small mb-1']);
+    echo html_writer::tag(
+        'p',
+        get_string('prof_totalstudents', 'mod_mtssdashboard') . ': ' . $studentcount,
+        ['class' => 'text-center text-muted small mb-1']
+    );
     $table = new html_table();
     $table->head = [
-        get_string('th_proficiency',   'mod_mtssdashboard'),
+        get_string('th_proficiency', 'mod_mtssdashboard'),
         get_string('prof_testrecords', 'mod_mtssdashboard'),
-        get_string('prof_pct',         'mod_mtssdashboard'),
+        get_string('prof_pct', 'mod_mtssdashboard'),
     ];
     $table->attributes['class'] = 'generaltable table-sm table-bordered text-center';
     $total = array_sum($profcounts);
@@ -1089,7 +1318,7 @@ $studentcount = count(array_unique(array_column($students, 'ssid')));
     echo html_writer::table($table);
     echo html_writer::end_div();
 
-    echo html_writer::end_div(); // .row
+    echo html_writer::end_div(); // End .row.
 
     // Output the doughnut JS — center total + per-slice counts, no legend.
     $colors = json_encode(array_map(fn($k) => $profcolors[$k] ?? '#6c757d', array_keys($profcounts)));
@@ -1182,10 +1411,10 @@ JS;
     $si = 0;
     foreach ($bysubject as $subjdesc => $subjdata) {
         // Collect results for this subject only.
-        $subject_results = array_filter($results, fn($r) => $r->subject_description === $subjdesc);
+        $subjectresults = array_filter($results, fn($r) => $r->subject_description === $subjdesc);
 
         $canvasid = 'subj_' . $si;
-        $chart = stv_subject_chart($canvasid, $subjdesc, $subject_results, $profcolors, $totalsubjects);
+        $chart = stv_subject_chart($canvasid, $subjdesc, $subjectresults, $profcolors, $totalsubjects);
         echo $chart['html'];
         $alljs .= $chart['js'];
 
@@ -1197,39 +1426,36 @@ JS;
             echo html_writer::start_div('row');
         }
     }
-    echo html_writer::end_div(); // .row
+    echo html_writer::end_div(); // End .row.
 
-    // ── Proficiency legend ────────────────────────────────────────────────────
-    /*echo html_writer::start_div('d-flex flex-wrap gap-2 mb-3');
-    foreach ($profcolors as $level => $color) {
-        echo html_writer::tag('span',
-            html_writer::tag('span', '', [
-                'style' => "display:inline-block;width:14px;height:14px;" .
-                           "background:{$color};border-radius:3px;margin-right:4px;"
-            ]) . htmlspecialchars($level),
-            ['class' => 'badge text-dark border', 'style' => 'font-size:0.85em;']
-        );
-    }
-    echo html_writer::end_div();
-*/
-    // ── Collapsed data table — current level ──────────────────────────────────
+    // Proficiency legend was disabled; the old commented-out code is in git history.
+    // Collapsed data table — current level.
     echo stv_render_table($results, $students);
 
-    // ── Inject all Chart.js ───────────────────────────────────────────────────
+    // Inject all Chart.js.
     echo '<script>' . $alljs . '</script>';
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// HISTORY TAB
-// ═══════════════════════════════════════════════════════════════════════════════
+// ----------------------------------------------------------------------
+// HISTORY TAB.
 if ($tab === 'history') {
-
-    $students = stv_filter_students($tabstudents, $f_gender, $f_race, $f_ed,
-                                    $f_swd, $f_el, $f_504, $f_iep, $f_gifted);
+    $students = stv_filter_students(
+        $tabstudents,
+        $fgender,
+        $frace,
+        $fed,
+        $fswd,
+        $fel,
+        $f504,
+        $fiep,
+        $fgifted
+    );
 
     if ($courselevel === 'es') {
         echo $OUTPUT->notification(
-            get_string('history_es_heading', 'mod_mtssdashboard'), 'notifyinfo');
+            get_string('history_es_heading', 'mod_mtssdashboard'),
+            'notifyinfo'
+        );
         echo $OUTPUT->footer();
         exit;
     }
@@ -1243,14 +1469,18 @@ if ($tab === 'history') {
     $ssids      = array_column($students, 'ssid');
     // History needs ALL years not just most recent — pass a dummy year filter
     // by fetching all records without the most-recent-only subquery.
-    $allresults = stv_get_all_results($ssids, $year, $f_el);
+    $allresults = stv_get_all_results($ssids, $year, $fel);
 
     // Filter to previous level only.
     $results = mtssdashboard_filter_by_grade_range(
-        $allresults, $students, $prev_min, $prev_max, $levelcfg->gradyear
+        $allresults,
+        $students,
+        $prevmin,
+        $prevmax,
+        $levelcfg->gradyear
     );
 
-    echo $OUTPUT->heading($prev_heading . ' — ' . $year, 4);
+    echo $OUTPUT->heading($prevheading . ' — ' . $year, 4);
 
     if (empty($results)) {
         echo $OUTPUT->notification(get_string('history_no_data', 'mod_mtssdashboard'), 'notifyinfo');
@@ -1265,23 +1495,29 @@ if ($tab === 'history') {
     // Overall proficiency doughnut + totals table.
     echo html_writer::start_div('row mb-4 align-items-center');
     echo html_writer::start_div('col-md-6');
-    echo html_writer::tag('h5', get_string('chart_proficiency', 'mod_mtssdashboard'),
-        ['class' => 'text-center']);
+    echo html_writer::tag(
+        'h5',
+        get_string('chart_proficiency', 'mod_mtssdashboard'),
+        ['class' => 'text-center']
+    );
     echo html_writer::tag('canvas', '', ['id' => 'chartProfDistHist', 'style' => 'max-height:320px;']);
     echo html_writer::end_div();
 
     // Totals table.
     echo html_writer::start_div('col-md-5');
     $studentcount = count(array_unique(array_column($students, 'ssid')));
-    echo html_writer::tag('h5', get_string('prof_totals', 'mod_mtssdashboard'),
-        ['class' => 'text-center']);
+    echo html_writer::tag(
+        'h5',
+        get_string('prof_totals', 'mod_mtssdashboard'),
+        ['class' => 'text-center']
+    );
     echo html_writer::tag('p', get_string('prof_totalstudents', 'mod_mtssdashboard') .
         ': ' . $studentcount, ['class' => 'text-center text-muted small mb-1']);
     $table = new html_table();
     $table->head = [
-        get_string('th_proficiency',   'mod_mtssdashboard'),
+        get_string('th_proficiency', 'mod_mtssdashboard'),
         get_string('prof_testrecords', 'mod_mtssdashboard'),
-        get_string('prof_pct',         'mod_mtssdashboard'),
+        get_string('prof_pct', 'mod_mtssdashboard'),
     ];
     $table->attributes['class'] = 'generaltable table-sm table-bordered text-center';
     $total = array_sum($profcounts);
@@ -1316,8 +1552,10 @@ if ($tab === 'history') {
     echo html_writer::end_div();
 
     // Overall doughnut JS.
-    $hcolors = json_encode(array_map(fn($k) => $histcolors[$k] ?? '#5a5a5a',
-        array_keys($profcounts)));
+    $hcolors = json_encode(array_map(
+        fn($k) => $histcolors[$k] ?? '#5a5a5a',
+        array_keys($profcounts)
+    ));
     $hlabels = json_encode(array_keys($profcounts));
     $hdata   = json_encode(array_values($profcounts));
     $proftotalhist = array_sum($profcounts);
@@ -1404,10 +1642,12 @@ JS;
     $totalsubjects = count($bysubject);
     $si = 0;
     foreach ($bysubject as $subjdesc => $subjdata) {
-        $subject_results = array_filter($results,
-            fn($r) => $r->subject_description === $subjdesc);
+        $subjectresults = array_filter(
+            $results,
+            fn($r) => $r->subject_description === $subjdesc
+        );
         $canvasid = 'hist_subj_' . $si;
-        $chart = stv_subject_chart($canvasid, $subjdesc, $subject_results, $histcolors, $totalsubjects);
+        $chart = stv_subject_chart($canvasid, $subjdesc, $subjectresults, $histcolors, $totalsubjects);
         echo $chart['html'];
         $alljs .= $chart['js'];
         $si++;
@@ -1419,23 +1659,21 @@ JS;
     }
     echo html_writer::end_div();
 
-    // Show data in history Tab for previous school
+    // Show data in history Tab for previous school.
     echo stv_render_table($results, $students);
     echo '<script>' . $alljs . '</script>';
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// TESTING HISTORY TAB
+// ----------------------------------------------------------------------
+// TESTING HISTORY TAB.
 // Shows year-over-year cohort line charts — one chart per subject family.
 // X-axis  = test stops in grade-level progression order (oldest → newest).
 // Y-axis  = average proficiency (1=Limited … 5=Advanced) for the cohort.
 // Lines   = one per graduation cohort (derived from first 2 chars of username).
-// ═══════════════════════════════════════════════════════════════════════════════
 if ($tab === 'subjecthistory') {
-
     echo $OUTPUT->heading(get_string('tab_subjecthistory', 'mod_mtssdashboard'), 3);
 
-    // ── Proficiency → numeric map ─────────────────────────────────────────────
+    // Proficiency → numeric map.
     $proftonum = [
         'Limited'      => 1,
         'Basic'        => 2,
@@ -1445,7 +1683,7 @@ if ($tab === 'subjecthistory') {
     ];
     $numtoprof = array_flip($proftonum);
 
-    // ── Subject family definitions ────────────────────────────────────────────
+    // Subject family definitions.
     // Each family defines an ordered list of x-axis "stops".
     // A stop is matched by (subject_code IN codes) AND (grade_level = grade_level_value).
     // 'hs' grade_level means the grade_level column contains 'High School'.
@@ -1456,61 +1694,70 @@ if ($tab === 'subjecthistory') {
             'title' => 'English Language Arts',
             'color_offset' => 0,
             'stops' => [
-                ['label' => 'ELA 3rd',    'codes' => ['R','ELA'],        'grade' => 'Third Grade'],
-                ['label' => 'ELA 4th',    'codes' => ['R','ELA'],        'grade' => 'Fourth Grade'],
-                ['label' => 'ELA 5th',    'codes' => ['R','ELA'],        'grade' => 'Fifth Grade'],
-                ['label' => 'ELA 6th',    'codes' => ['R','ELA'],        'grade' => 'Sixth Grade'],
-                ['label' => 'ELA 7th',    'codes' => ['R','ELA'],        'grade' => 'Seventh Grade'],
-                ['label' => 'ELA 8th',    'codes' => ['R','ELA'],        'grade' => 'Eighth Grade'],
-                ['label' => 'ELA II',     'codes' => ['R','ELA2'],       'grade' => 'High School'],
+                ['label' => 'ELA 3rd', 'codes' => ['R', 'ELA'], 'grade' => 'Third Grade'],
+                ['label' => 'ELA 4th', 'codes' => ['R', 'ELA'], 'grade' => 'Fourth Grade'],
+                ['label' => 'ELA 5th', 'codes' => ['R', 'ELA'], 'grade' => 'Fifth Grade'],
+                ['label' => 'ELA 6th', 'codes' => ['R', 'ELA'], 'grade' => 'Sixth Grade'],
+                ['label' => 'ELA 7th', 'codes' => ['R', 'ELA'], 'grade' => 'Seventh Grade'],
+                ['label' => 'ELA 8th', 'codes' => ['R', 'ELA'], 'grade' => 'Eighth Grade'],
+                ['label' => 'ELA II', 'codes' => ['R', 'ELA2'], 'grade' => 'High School'],
             ],
         ],
         'math' => [
             'title' => 'Mathematics',
             'color_offset' => 0,
             'stops' => [
-                ['label' => 'Math 3rd',   'codes' => ['M'],              'grade' => 'Third Grade'],
-                ['label' => 'Math 4th',   'codes' => ['M'],              'grade' => 'Fourth Grade'],
-                ['label' => 'Math 5th',   'codes' => ['M'],              'grade' => 'Fifth Grade'],
-                ['label' => 'Math 6th',   'codes' => ['M'],              'grade' => 'Sixth Grade'],
-                ['label' => 'Math 7th',   'codes' => ['M'],              'grade' => 'Seventh Grade'],
-                ['label' => 'Math 8th',   'codes' => ['M'],              'grade' => 'Eighth Grade'],
-                ['label' => 'Math I',     'codes' => ['MTH1'],           'grade' => 'High School'],
-                ['label' => 'Algebra I',  'codes' => ['ALG1'],           'grade' => 'High School'],
-                ['label' => 'Geometry',   'codes' => ['GEOM','M'],       'grade' => 'High School'],
+                ['label' => 'Math 3rd', 'codes' => ['M'], 'grade' => 'Third Grade'],
+                ['label' => 'Math 4th', 'codes' => ['M'], 'grade' => 'Fourth Grade'],
+                ['label' => 'Math 5th', 'codes' => ['M'], 'grade' => 'Fifth Grade'],
+                ['label' => 'Math 6th', 'codes' => ['M'], 'grade' => 'Sixth Grade'],
+                ['label' => 'Math 7th', 'codes' => ['M'], 'grade' => 'Seventh Grade'],
+                ['label' => 'Math 8th', 'codes' => ['M'], 'grade' => 'Eighth Grade'],
+                ['label' => 'Math I', 'codes' => ['MTH1'], 'grade' => 'High School'],
+                ['label' => 'Algebra I', 'codes' => ['ALG1'], 'grade' => 'High School'],
+                ['label' => 'Geometry', 'codes' => ['GEOM', 'M'], 'grade' => 'High School'],
             ],
         ],
         'science' => [
             'title' => 'Science',
             'color_offset' => 0,
             'stops' => [
-                ['label' => 'Science 5th', 'codes' => ['S'],             'grade' => 'Fifth Grade'],
-                ['label' => 'Science 8th', 'codes' => ['S'],             'grade' => 'Eighth Grade'],
-                ['label' => 'Biology',     'codes' => ['S','BIOL'],      'grade' => 'High School'],
+                ['label' => 'Science 5th', 'codes' => ['S'], 'grade' => 'Fifth Grade'],
+                ['label' => 'Science 8th', 'codes' => ['S'], 'grade' => 'Eighth Grade'],
+                ['label' => 'Biology', 'codes' => ['S', 'BIOL'], 'grade' => 'High School'],
             ],
         ],
         'ss' => [
             'title' => 'Social Studies',
             'color_offset' => 0,
             'stops' => [
-                ['label' => 'US History',  'codes' => ['C','HIST'],      'grade' => 'High School'],
-                ['label' => 'Government',  'codes' => ['GOVM'],          'grade' => 'High School'],
+                ['label' => 'US History', 'codes' => ['C', 'HIST'], 'grade' => 'High School'],
+                ['label' => 'Government', 'codes' => ['GOVM'], 'grade' => 'High School'],
             ],
         ],
     ];
 
-    // ── Apply group + demographic filters ────────────────────────────────────
+    // Apply group + demographic filters.
     // $tabstudents already has the Moodle group filter applied (from the shared
     // tab routing block above). Apply demographic filters on top of that.
-    $thbasestu = stv_filter_students($tabstudents, $f_gender, $f_race, $f_ed,
-                                     $f_swd, $f_el, $f_504, $f_iep, $f_gifted);
+    $thbasestu = stv_filter_students(
+        $tabstudents,
+        $fgender,
+        $frace,
+        $fed,
+        $fswd,
+        $fel,
+        $f504,
+        $fiep,
+        $fgifted
+    );
 
-    // ── Fetch all enrolled students WITH username (need it for grad year) ──────
+    // Fetch all enrolled students WITH username (need it for grad year).
     // $allstudents from lib.php does not include username — re-query here.
     $thstudents = [];
     if (!empty($thbasestu)) {
         $userids = array_column($thbasestu, 'userid');
-        list($uidsql, $uidparams) = $DB->get_in_or_equal($userids, SQL_PARAMS_NAMED, 'uid');
+        [$uidsql, $uidparams] = $DB->get_in_or_equal($userids, SQL_PARAMS_NAMED, 'uid');
         $userrows = $DB->get_records_sql(
             "SELECT id, username FROM {user} WHERE id $uidsql",
             $uidparams
@@ -1526,12 +1773,14 @@ if ($tab === 'subjecthistory') {
 
     if (empty($thstudents)) {
         echo $OUTPUT->notification(
-            get_string('nostudentlink', 'mod_mtssdashboard'), 'notifywarning');
+            get_string('nostudentlink', 'mod_mtssdashboard'),
+            'notifywarning'
+        );
         echo $OUTPUT->footer();
         exit;
     }
 
-    // ── Derive graduation year from username ──────────────────────────────────
+    // Derive graduation year from username.
     // Username starts with 2-digit grad year: "26bpool" → 2026.
     // Assumption: all years are 20xx (valid for 2021-2029 range in data).
     foreach ($thstudents as $s) {
@@ -1539,19 +1788,21 @@ if ($tab === 'subjecthistory') {
         $s->gradyear = 2000 + $prefix;
     }
 
-    // ── Collect all SSIDs and fetch ALL their test records ────────────────────
+    // Collect all SSIDs and fetch ALL their test records.
     $thssids = array_column($thstudents, 'ssid');
     $thssids = array_filter($thssids); // Remove empty.
     $thssids = array_values($thssids);
 
     if (empty($thssids)) {
         echo $OUTPUT->notification(
-            get_string('nostudentlink', 'mod_mtssdashboard'), 'notifywarning');
+            get_string('nostudentlink', 'mod_mtssdashboard'),
+            'notifywarning'
+        );
         echo $OUTPUT->footer();
         exit;
     }
 
-    list($thinsql, $thparams) = $DB->get_in_or_equal($thssids, SQL_PARAMS_NAMED, 'thssid');
+    [$thinsql, $thparams] = $DB->get_in_or_equal($thssids, SQL_PARAMS_NAMED, 'thssid');
     $statetable = $CFG->prefix . 'NTstatetesting';
     $thallresults = $DB->get_records_sql(
         "SELECT *
@@ -1566,12 +1817,14 @@ if ($tab === 'subjecthistory') {
 
     if (empty($thallresults)) {
         echo $OUTPUT->notification(
-            get_string('chart_nodata', 'mod_mtssdashboard'), 'notifyinfo');
+            get_string('chart_nodata', 'mod_mtssdashboard'),
+            'notifyinfo'
+        );
         echo $OUTPUT->footer();
         exit;
     }
 
-    // ── Build ssid → gradyear map ─────────────────────────────────────────────
+    // Build ssid → gradyear map.
     $ssidtogradyear = [];
     foreach ($thstudents as $s) {
         if (!empty($s->ssid)) {
@@ -1579,27 +1832,27 @@ if ($tab === 'subjecthistory') {
         }
     }
 
-    // ── Collect all distinct grad years present in our student set ────────────
+    // Collect all distinct grad years present in our student set.
     $allgradyears = array_unique(array_values($ssidtogradyear));
     sort($allgradyears);
 
-    // ── Cohort line colours (one per grad year, cycling) ─────────────────────
+    // Cohort line colours (one per grad year, cycling).
     $cohortcolors = [
         '#4e73df', '#1cc88a', '#e74a3b', '#f6c23e',
         '#36b9cc', '#fd7e14', '#6f42c1', '#20c997',
     ];
 
-    // ── Helper: match a result row to a stop definition ──────────────────────
+    // Helper: match a result row to a stop definition.
     // Returns true if the result's subject_code is in stop codes AND
     // grade_level matches (case-insensitive).
-    $matchstop = function($r, $stop) {
+    $matchstop = function ($r, $stop) {
         if (!in_array($r->subject_code, $stop['codes'], true)) {
             return false;
         }
         return strcasecmp(trim($r->grade_level), trim($stop['grade'])) === 0;
     };
 
-    // ── Build chart data for each family ─────────────────────────────────────
+    // Build chart data for each family.
     // For each family → each stop → each grad year → collect numeric prof scores
     // → average them → that is the data point.
 
@@ -1607,7 +1860,6 @@ if ($tab === 'subjecthistory') {
     $chartn = 0;
 
     foreach ($families as $famkey => $family) {
-
         $stops      = $family['stops'];
 
         // Find the last stop index that has data for any cohort,
@@ -1637,12 +1889,11 @@ if ($tab === 'subjecthistory') {
 
         $stoplabels = array_column($stops, 'label');
 
-        // datasets: one per grad year.
+        // Datasets: one per grad year.
         $datasets = [];
         $hasanydata = false;
 
         foreach ($allgradyears as $gi => $gradyear) {
-
             // Collect data points for each stop.
             $datapoints  = [];
             $pointcounts = [];
@@ -1662,7 +1913,7 @@ if ($tab === 'subjecthistory') {
                         $scores[] = $num;
                     }
                 }
-                // null = no data for this cohort at this stop (Chart.js spanGaps).
+                // Null = no data for this cohort at this stop (Chart.js spanGaps).
                 $datapoints[]  = !empty($scores)
                     ? round(array_sum($scores) / count($scores), 2)
                     : null;
@@ -1685,14 +1936,14 @@ if ($tab === 'subjecthistory') {
                 'backgroundColor' => $color . '33',
                 'pointBackgroundColor' => $color,
                 'pointRadius'     => 6,
-                'pointHoverRadius'=> 8,
+                'pointHoverRadius' => 8,
                 'tension'         => 0.3,
                 'fill'            => false,
                 'spanGaps'        => true,
             ];
         }
 
-        // ── Render chart HTML ─────────────────────────────────────────────────
+        // Render chart HTML.
         $canvasid = 'th_chart_' . $famkey;
         echo html_writer::start_div('card mb-4');
         echo html_writer::start_div('card-header');
@@ -1702,7 +1953,9 @@ if ($tab === 'subjecthistory') {
 
         if (!$hasanydata) {
             echo $OUTPUT->notification(
-                get_string('chart_nodata', 'mod_mtssdashboard'), 'notifyinfo');
+                get_string('chart_nodata', 'mod_mtssdashboard'),
+                'notifyinfo'
+            );
             echo html_writer::end_div();
             echo html_writer::end_div();
             continue;
@@ -1711,10 +1964,10 @@ if ($tab === 'subjecthistory') {
         echo html_writer::start_div('', ['style' => 'position:relative;height:60vh;min-height:320px;max-height:500px;']);
         echo html_writer::tag('canvas', '', ['id' => $canvasid]);
         echo html_writer::end_div();
-        echo html_writer::end_div(); // card-body
-        echo html_writer::end_div(); // card
+        echo html_writer::end_div(); // Card-body.
+        echo html_writer::end_div(); // Card.
 
-        // ── Build Chart.js JS ─────────────────────────────────────────────────
+        // Build Chart.js JS.
         $jslabels   = json_encode($stoplabels);
         $jsdatasets = json_encode($datasets);
 
@@ -1808,11 +2061,9 @@ JS;
     }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// STUDENT VIEW
-// ═══════════════════════════════════════════════════════════════════════════════
+// ----------------------------------------------------------------------
+// STUDENT VIEW.
 if ($tab === 'student') {
-
     if (empty($studuserid)) {
         echo $OUTPUT->notification(get_string('selectstudent', 'mod_mtssdashboard'), 'notifyinfo');
         echo $OUTPUT->footer();
@@ -1848,31 +2099,43 @@ if ($tab === 'student') {
         ['ssid' => $student->ssid]
     );
     // Filtered results for table.
-    $results    = stv_get_results([$student->ssid], $year, $f_el);
+    $results    = stv_get_results([$student->ssid], $year, $fel);
 
     echo $OUTPUT->heading(
         $student->firstname . ' ' . $student->lastname . ' — ' .
-        get_string('tab_student', 'mod_mtssdashboard'), 3);
+        get_string('tab_student', 'mod_mtssdashboard'),
+        3
+    );
 
-    // ── Student info card ─────────────────────────────────────────────────────
+    // Student info card.
     // 504/IEP link to the same student plan PDF used by the Early Warning
     // tab's Student ID column. WEP/RIMP link to their own print views.
     $plansdir = $CFG->dataroot . '/NTimports/plans/';
     $planfile = $plansdir . $student->idnumber . '.pdf';
     $hasplan  = ($student->idnumber > 0 && file_exists($planfile) && is_readable($planfile));
-    $planurl  = new moodle_url('/mod/mtssdashboard/plan.php',
-        ['cmid' => $cm->id, 'ssid' => $student->idnumber]);
+    $planurl  = new moodle_url(
+        '/mod/mtssdashboard/plan.php',
+        ['cmid' => $cm->id, 'ssid' => $student->idnumber]
+    );
 
     $rimpmap = stv_get_rimp_by_studentnumber([$student->idnumber]);
     $hasrimp = isset($rimpmap[(int) $student->idnumber]);
-    $rimpurl = new moodle_url('/mod/mtssdashboard/rimp_print.php',
-        ['id' => $cm->id, 'sn' => $student->idnumber]);
+    $rimpurl = new moodle_url(
+        '/mod/mtssdashboard/rimp_print.php',
+        ['id' => $cm->id, 'sn' => $student->idnumber]
+    );
 
-    $hasweprecord = $DB->get_record_select('mtssdashboard_wep',
-        'studentnumber = :sn', ['sn' => $student->idnumber], 'id');
+    $hasweprecord = $DB->get_record_select(
+        'mtssdashboard_wep',
+        'studentnumber = :sn',
+        ['sn' => $student->idnumber],
+        'id'
+    );
     $haswep  = !empty($hasweprecord);
-    $wepurl  = new moodle_url('/mod/mtssdashboard/wep_print.php',
-        ['id' => $cm->id, 'sn' => $student->idnumber]);
+    $wepurl  = new moodle_url(
+        '/mod/mtssdashboard/wep_print.php',
+        ['id' => $cm->id, 'sn' => $student->idnumber]
+    );
 
     echo html_writer::start_div('card mb-3');
     echo html_writer::start_div('card-body py-2');
@@ -1896,13 +2159,19 @@ if ($tab === 'student') {
     ];
     foreach ($badges as $lbl => $info) {
         echo html_writer::start_div('col');
-        echo html_writer::tag('div', $lbl, ['class'=>'small text-muted']);
+        echo html_writer::tag('div', $lbl, ['class' => 'small text-muted']);
         if (!empty($info['link'])) {
-            echo html_writer::link($info['link']->out(false), $info['text'],
+            echo html_writer::link(
+                $info['link']->out(false),
+                $info['text'],
                 ['class' => 'fw-bold', 'target' => '_blank',
-                 'title' => get_string('plan_view', 'mod_mtssdashboard')]);
+                'title' => get_string(
+                    'plan_view',
+                    'mod_mtssdashboard'
+                )]
+            );
         } else {
-            echo html_writer::tag('div', $info['text'], ['class'=>'fw-bold']);
+            echo html_writer::tag('div', $info['text'], ['class' => 'fw-bold']);
         }
         echo html_writer::end_div();
     }
@@ -1910,7 +2179,7 @@ if ($tab === 'student') {
     echo html_writer::end_div();
     echo html_writer::end_div();
 
-    // ── Contact info + Classes & Grades (two-column section) ──────────────────
+    // Contact info + Classes & Grades (two-column section).
     $contactstable = $CFG->prefix . 'contacts';
     $contactinfo = $DB->get_record_sql(
         "SELECT Address AS address, Address2 AS address2, City AS city,
@@ -1924,10 +2193,10 @@ if ($tab === 'student') {
 
     // Student picture — same pluginfile pattern used by rimp_print.php / wep_print.php.
     $picuser = $DB->get_record('user', ['id' => $student->userid], 'id, picture');
-    $pic_url = $CFG->wwwroot . '/pix/u/f1.png';
+    $picurl = $CFG->wwwroot . '/pix/u/f1.png';
     if (!empty($picuser) && !empty($picuser->picture)) {
-        $user_context = context_user::instance($picuser->id);
-        $pic_url = $CFG->wwwroot . '/pluginfile.php/' . $user_context->id
+        $usercontext = context_user::instance($picuser->id);
+        $picurl = $CFG->wwwroot . '/pluginfile.php/' . $usercontext->id
             . '/user/icon/boost/f1?rev=' . $picuser->picture;
     }
 
@@ -1959,17 +2228,19 @@ if ($tab === 'student') {
 
     echo html_writer::start_div('row mb-3');
 
-    // ── Left column: contact information ───────────────────────────────────
+    // Left column: contact information.
     echo html_writer::start_div('col-md-5 mb-3 mb-md-0');
     echo html_writer::start_div('card h-100');
     echo html_writer::start_div('card-body');
-    echo html_writer::tag('h5',
+    echo html_writer::tag(
+        'h5',
         get_string('studentdata_contact_heading', 'mod_mtssdashboard'),
-        ['class' => 'card-title']);
+        ['class' => 'card-title']
+    );
 
     echo html_writer::start_div('d-flex align-items-start gap-3');
     echo html_writer::empty_tag('img', [
-        'src'   => $pic_url,
+        'src'   => $picurl,
         'alt'   => '',
         'style' => 'width:64px;height:64px;border-radius:50%;object-fit:cover;flex-shrink:0;',
     ]);
@@ -2011,34 +2282,40 @@ if ($tab === 'student') {
         $ct->data[] = new html_table_row([$valuecell]);
     }
     echo html_writer::table($ct);
-    echo html_writer::end_div(); // flex-grow-1
-    echo html_writer::end_div(); // d-flex
-    echo html_writer::end_div(); // card-body
-    echo html_writer::end_div(); // card
-    echo html_writer::end_div(); // col-md-5
+    echo html_writer::end_div(); // Flex-grow-1.
+    echo html_writer::end_div(); // D-flex.
+    echo html_writer::end_div(); // Card-body.
+    echo html_writer::end_div(); // Card.
+    echo html_writer::end_div(); // Col-md-5.
 
-    // ── Right column: classes & grades ───────────────────────────────────────
+    // Right column: classes & grades.
     echo html_writer::start_div('col-md-7');
     echo html_writer::start_div('card h-100');
     echo html_writer::start_div('card-body');
-    echo html_writer::tag('h5',
+    echo html_writer::tag(
+        'h5',
         get_string('studentdata_classes_heading', 'mod_mtssdashboard'),
-        ['class' => 'card-title']);
+        ['class' => 'card-title']
+    );
 
     if ($studentiselementary) {
         $gradecardurl = new moodle_url('/blocks/parentgrades/viewgrades.php', ['userid' => $student->userid]);
         echo html_writer::div(
-            html_writer::link($gradecardurl->out(false),
+            html_writer::link(
+                $gradecardurl->out(false),
                 get_string('viewelementarygradecard', 'block_parentgrades'),
-                ['class' => 'btn btn-secondary btn-sm mb-2', 'target' => '_blank']),
+                ['class' => 'btn btn-secondary btn-sm mb-2', 'target' => '_blank']
+            ),
             'mb-2'
         );
     }
 
     if (empty($coursegrades)) {
-        echo html_writer::tag('div',
+        echo html_writer::tag(
+            'div',
             get_string('studentdata_nogrades', 'mod_mtssdashboard'),
-            ['class' => 'text-muted small']);
+            ['class' => 'text-muted small']
+        );
     } else {
         $gt = new html_table();
         $gt->head = [
@@ -2053,8 +2330,11 @@ if ($tab === 'student') {
                 'item'   => 'user',
                 'itemid' => $student->userid,
             ]);
-            $coursenamelink = html_writer::link($singleviewurl->out(false), s($cg->coursename),
-                ['target' => '_blank']);
+            $coursenamelink = html_writer::link(
+                $singleviewurl->out(false),
+                s($cg->coursename),
+                ['target' => '_blank']
+            );
             $gt->data[] = new html_table_row([
                 new html_table_cell($coursenamelink),
                 new html_table_cell(s($cg->teacher)),
@@ -2063,11 +2343,11 @@ if ($tab === 'student') {
         }
         echo html_writer::table($gt);
     }
-    echo html_writer::end_div(); // card-body
-    echo html_writer::end_div(); // card
-    echo html_writer::end_div(); // col-md-7
+    echo html_writer::end_div(); // Card-body.
+    echo html_writer::end_div(); // Card.
+    echo html_writer::end_div(); // Col-md-7.
 
-    echo html_writer::end_div(); // row
+    echo html_writer::end_div(); // Row.
 
     if (!mtssdashboard_render_student_charts($student->ssid)) {
         echo $OUTPUT->footer();
@@ -2080,119 +2360,119 @@ if ($tab === 'student') {
     }
 
     if (false) {
-    // ── Proficiency-band cutoffs (approximate Ohio breakpoints) ───────────────
-    // Used to position dots within their band on the trend chart so two
-    // students at the same proficiency level but different scores show at
-    // visually distinguishable heights. The exact ranges vary by subject and
-    // grade in Ohio's system; these approximations are good enough for an
-    // at-a-glance visual.
-    $bandranges = [
+        // Proficiency-band cutoffs (approximate Ohio breakpoints).
+        // Used to position dots within their band on the trend chart so two
+        // students at the same proficiency level but different scores show at
+        // visually distinguishable heights. The exact ranges vary by subject and
+        // grade in Ohio's system; these approximations are good enough for an
+        // at-a-glance visual.
+        $bandranges = [
         'Limited'      => ['min' => 640, 'max' => 680],
         'Basic'        => ['min' => 680, 'max' => 700],
         'Proficient'   => ['min' => 700, 'max' => 725],
         'Accomplished' => ['min' => 725, 'max' => 745],
         'Advanced'     => ['min' => 745, 'max' => 805],
-    ];
+        ];
 
-    // Maps proficiency_level to its 1-5 base Y value (band floor).
-    $prof_to_yfloor = [
+        // Maps proficiency_level to its 1-5 base Y value (band floor).
+        $proftoyfloor = [
         'Limited'      => 1.0,
         'Basic'        => 2.0,
         'Proficient'   => 3.0,
         'Accomplished' => 4.0,
         'Advanced'     => 5.0,
-    ];
+        ];
 
-    // ── Build trend datasets: one line per subject AREA (4 lines total) ───────
-    // X-axis = unique years (sorted). Y-axis = proficiency level (1-5).
-    // Each dot's Y is fine-tuned within its band by where the score falls
-    // between the band's min and max in $cutoffs.
-    $code_to_area = [
-        'R'    => 'ela',  'ELA'  => 'ela',  'ELA2' => 'ela',
+        // Build trend datasets: one line per subject AREA (4 lines total).
+        // X-axis = unique years (sorted). Y-axis = proficiency level (1-5).
+        // Each dot's Y is fine-tuned within its band by where the score falls
+        // between the band's min and max in $cutoffs.
+        $codetoarea = [
+        'R'    => 'ela', 'ELA'  => 'ela', 'ELA2' => 'ela',
         'M'    => 'math', 'MTH1' => 'math', 'ALG1' => 'math', 'GEOM' => 'math',
-        'S'    => 'sci',  'BIOL' => 'sci',
-        'C'    => 'ss',   'HIST' => 'ss',   'GOVM' => 'ss',
-    ];
-    $area_labels = [
+        'S'    => 'sci', 'BIOL' => 'sci',
+        'C'    => 'ss', 'HIST' => 'ss', 'GOVM' => 'ss',
+        ];
+        $arealabels = [
         'ela'  => 'English Language Arts',
         'math' => 'Mathematics',
         'sci'  => 'Science',
         'ss'   => 'Social Studies',
-    ];
-    $area_colors = [
-        'ela'  => '#4e73df', // blue
-        'math' => '#1cc88a', // green
-        'sci'  => '#f6c23e', // yellow
-        'ss'   => '#e74a3b', // red
-    ];
+        ];
+        $areacolors = [
+        'ela'  => '#4e73df', // Blue.
+        'math' => '#1cc88a', // Green.
+        'sci'  => '#f6c23e', // Yellow.
+        'ss'   => '#e74a3b', // Red.
+        ];
 
-    // X-axis: list of unique years the student has any test in, chronological.
-    $yearset = [];
-    foreach ($allresults as $r) {
-        $yearset[$r->year] = true;
-    }
-    ksort($yearset);
-    $assessmentlabels = array_keys($yearset);
+        // X-axis: list of unique years the student has any test in, chronological.
+        $yearset = [];
+        foreach ($allresults as $r) {
+            $yearset[$r->year] = true;
+        }
+        ksort($yearset);
+        $assessmentlabels = array_keys($yearset);
 
-    // Compute (year-index, Y, score) for every test, grouped by subject area.
-    // Using {x: yearindex, y: Y} object form lets two tests share a year.
-    $area_points = [];
-    foreach ($area_labels as $areakey => $_) {
-        $area_points[$areakey] = [];
-    }
-    foreach ($allresults as $r) {
-        $area = $code_to_area[$r->subject_code] ?? null;
-        if ($area === null) {
-            continue;
+        // Compute (year-index, Y, score) for every test, grouped by subject area.
+        // Using {x: yearindex, y: Y} object form lets two tests share a year.
+        $areapoints = [];
+        foreach ($arealabels as $areakey => $unused) {
+            $areapoints[$areakey] = [];
         }
-        $yearidx = array_search($r->year, $assessmentlabels, true);
-        if ($yearidx === false) {
-            continue;
-        }
-        $pl = $r->proficiency_level ?? null;
-        $yfloor = $prof_to_yfloor[$pl] ?? null;
-        if ($yfloor === null) {
-            continue; // Unknown proficiency level — skip.
-        }
-        // Fine-tune Y within its band based on score position between
-        // approximate Ohio breakpoints, so dots within the same band spread
-        // vertically by score.
-        $y = $yfloor;
-        $band = $bandranges[$pl] ?? null;
-        if ($band !== null && $band['max'] > $band['min']) {
-            $score = (float) $r->assessment_score;
-            $frac = ($score - $band['min']) / ($band['max'] - $band['min']);
-            // Clamp to [0, 0.99] so dots stay inside their band visually.
-            $frac = max(0.0, min(0.99, $frac));
-            $y = $yfloor + $frac;
-        }
-        $area_points[$area][] = [
+        foreach ($allresults as $r) {
+            $area = $codetoarea[$r->subject_code] ?? null;
+            if ($area === null) {
+                continue;
+            }
+            $yearidx = array_search($r->year, $assessmentlabels, true);
+            if ($yearidx === false) {
+                continue;
+            }
+            $pl = $r->proficiency_level ?? null;
+            $yfloor = $proftoyfloor[$pl] ?? null;
+            if ($yfloor === null) {
+                continue; // Unknown proficiency level — skip.
+            }
+            // Fine-tune Y within its band based on score position between
+            // approximate Ohio breakpoints, so dots within the same band spread
+            // vertically by score.
+            $y = $yfloor;
+            $band = $bandranges[$pl] ?? null;
+            if ($band !== null && $band['max'] > $band['min']) {
+                $score = (float) $r->assessment_score;
+                $frac = ($score - $band['min']) / ($band['max'] - $band['min']);
+                // Clamp to [0, 0.99] so dots stay inside their band visually.
+                $frac = max(0.0, min(0.99, $frac));
+                $y = $yfloor + $frac;
+            }
+            $areapoints[$area][] = [
             'x'        => (int) $yearidx,
             'y'        => round($y, 3),
             'score'    => (int) $r->assessment_score,
             'profname' => $pl,
             'subject'  => $r->subject_description,
-        ];
-    }
-
-    // Sort each area's points by year-index so the line draws left-to-right.
-    foreach ($area_points as &$pts) {
-        usort($pts, function($a, $b) {
-            return $a['x'] - $b['x'];
-        });
-    }
-    unset($pts);
-
-    // Build one Chart.js dataset per area that actually has any points.
-    $trendsets = [];
-    foreach ($area_labels as $areakey => $arealabel) {
-        if (empty($area_points[$areakey])) {
-            continue;
+            ];
         }
-        $color = $area_colors[$areakey];
-        $trendsets[] = [
+
+        // Sort each area's points by year-index so the line draws left-to-right.
+        foreach ($areapoints as &$pts) {
+            usort($pts, function ($a, $b) {
+                return $a['x'] - $b['x'];
+            });
+        }
+        unset($pts);
+
+        // Build one Chart.js dataset per area that actually has any points.
+        $trendsets = [];
+        foreach ($arealabels as $areakey => $arealabel) {
+            if (empty($areapoints[$areakey])) {
+                continue;
+            }
+            $color = $areacolors[$areakey];
+            $trendsets[] = [
             'label'                => $arealabel,
-            'data'                 => $area_points[$areakey],
+            'data'                 => $areapoints[$areakey],
             'borderColor'          => $color,
             'backgroundColor'      => $color . '22',
             'pointBackgroundColor' => $color,
@@ -2202,75 +2482,77 @@ if ($tab === 'student') {
             'tension'              => 0.3,
             'fill'                 => false,
             'spanGaps'             => true,
-        ];
-    }
+            ];
+        }
 
-    // ── Radar: one polygon per year, axes = subject AREA ──────────────────────
-    // Each vertex value is the average proficiency-Y of that year/area's tests
-    // (same 1-5 mapping used by the trend chart). When a year is missing data
-    // for an area, the previous year's value is carried forward so the
-    // polygon stays whole.
-    $radar_axes  = ['ela', 'math', 'sci', 'ss'];
-    $radar_axis_labels = [
+        // Radar: one polygon per year, axes = subject AREA.
+        // Each vertex value is the average proficiency-Y of that year/area's tests
+        // (same 1-5 mapping used by the trend chart). When a year is missing data
+        // for an area, the previous year's value is carried forward so the
+        // polygon stays whole.
+        $radaraxes  = ['ela', 'math', 'sci', 'ss'];
+        $radaraxislabels = [
         'ela'  => 'English Language Arts',
         'math' => 'Mathematics',
         'sci'  => 'Science',
         'ss'   => 'Social Studies',
-    ];
+        ];
 
-    // Collect Y values per (year, area). Same code_to_area, prof_to_yfloor,
-    // bandranges defined earlier in this tab.
-    $radar_year_area_y = [];
-    foreach ($allresults as $r) {
-        $area = $code_to_area[$r->subject_code] ?? null;
-        if ($area === null) {
-            continue;
+        // Collect Y values per (year, area). Same code_to_area, prof_to_yfloor,
+        // bandranges defined earlier in this tab.
+        $radaryearareay = [];
+        foreach ($allresults as $r) {
+            $area = $codetoarea[$r->subject_code] ?? null;
+            if ($area === null) {
+                continue;
+            }
+            $pl = $r->proficiency_level ?? null;
+            $yfloor = $proftoyfloor[$pl] ?? null;
+            if ($yfloor === null) {
+                continue;
+            }
+            $y = $yfloor;
+            $band = $bandranges[$pl] ?? null;
+            if ($band !== null && $band['max'] > $band['min']) {
+                $score = (float) $r->assessment_score;
+                $frac = ($score - $band['min']) / ($band['max'] - $band['min']);
+                $frac = max(0.0, min(0.99, $frac));
+                $y = $yfloor + $frac;
+            }
+            $radaryearareay[$r->year][$area][] = $y;
         }
-        $pl = $r->proficiency_level ?? null;
-        $yfloor = $prof_to_yfloor[$pl] ?? null;
-        if ($yfloor === null) {
-            continue;
-        }
-        $y = $yfloor;
-        $band = $bandranges[$pl] ?? null;
-        if ($band !== null && $band['max'] > $band['min']) {
-            $score = (float) $r->assessment_score;
-            $frac = ($score - $band['min']) / ($band['max'] - $band['min']);
-            $frac = max(0.0, min(0.99, $frac));
-            $y = $yfloor + $frac;
-        }
-        $radar_year_area_y[$r->year][$area][] = $y;
-    }
 
-    // Sort years chronologically (we already have $assessmentlabels = sorted years).
-    $radar_years = $assessmentlabels;
+        // Sort years chronologically (we already have $assessmentlabels = sorted years).
+        $radaryears = $assessmentlabels;
 
-    // Build per-year polygons. Carry-forward fills missing-area vertices.
-    $radar_year_colors = [
+        // Build per-year polygons. Carry-forward fills missing-area vertices.
+        $radaryearcolors = [
         '#4e73df', '#1cc88a', '#f6c23e', '#e74a3b',
         '#36b9cc', '#858796', '#fd7e14',
-    ];
-    $radar_datasets = [];
-    $carry = ['ela' => null, 'math' => null, 'sci' => null, 'ss' => null];
-    $ci = 0;
-    foreach ($radar_years as $yr) {
-        $vertex = [];
-        foreach ($radar_axes as $area) {
-            if (isset($radar_year_area_y[$yr][$area])
-                    && !empty($radar_year_area_y[$yr][$area])) {
-                $vals = $radar_year_area_y[$yr][$area];
-                $avg = array_sum($vals) / count($vals);
-                $carry[$area] = $avg;
-                $vertex[] = round($avg, 3);
-            } else if ($carry[$area] !== null) {
-                $vertex[] = round($carry[$area], 3);
-            } else {
-                // No prior value to carry forward; place at axis origin.
-                $vertex[] = 0;
+        ];
+        $radardatasets = [];
+        $carry = ['ela' => null, 'math' => null, 'sci' => null, 'ss' => null];
+        $ci = 0;
+        foreach ($radaryears as $yr) {
+            $vertex = [];
+            foreach ($radaraxes as $area) {
+                if (
+                    isset($radaryearareay[$yr][$area])
+                    && !empty($radaryearareay[$yr][$area])
+                ) {
+                    $vals = $radaryearareay[$yr][$area];
+                    $avg = array_sum($vals) / count($vals);
+                    $carry[$area] = $avg;
+                    $vertex[] = round($avg, 3);
+                } else if ($carry[$area] !== null) {
+                    $vertex[] = round($carry[$area], 3);
+                } else {
+                    // No prior value to carry forward; place at axis origin.
+                    $vertex[] = 0;
+                }
             }
-        }
-        $color = $radar_year_colors[$ci % count($radar_year_colors)];
-        $radar_datasets[] = [
+            $color = $radaryearcolors[$ci % count($radaryearcolors)];
+            $radardatasets[] = [
             'label'                => $yr,
             'data'                 => $vertex,
             'backgroundColor'      => $color . '22',
@@ -2278,61 +2560,56 @@ if ($tab === 'student') {
             'pointBackgroundColor' => $color,
             'pointRadius'          => 4,
             'fill'                 => true,
-        ];
-        $ci++;
-    }
+            ];
+            $ci++;
+        }
 
-    // Variables consumed by the JS render block below.
-    $radarLabelsArr = array_map(function($a) use ($radar_axis_labels) {
-        return $radar_axis_labels[$a];
-    }, $radar_axes);
+        // Variables consumed by the JS render block below.
+        $radarlabelsarr = array_map(function ($a) use ($radaraxislabels) {
+            return $radaraxislabels[$a];
+        }, $radaraxes);
 
-    // ── Charts ────────────────────────────────────────────────────────────────
-    echo html_writer::start_div('row mb-3');
+        // Charts.
+        echo html_writer::start_div('row mb-3');
 
-    // Trend line chart.
-    echo html_writer::start_div('col-md-8');
-    echo html_writer::tag('h5', get_string('chart_trend', 'mod_mtssdashboard'),
-        ['class'=>'text-center']);
-    echo html_writer::start_div('', ['style' => 'position:relative; height:400px;']);
-    echo html_writer::tag('canvas', '', ['id'=>'chartTrend']);
-    echo html_writer::end_div();
-    echo html_writer::end_div();
-
-    // Radar chart.
-    echo html_writer::start_div('col-md-4');
-    echo html_writer::tag('h5', get_string('chart_radar', 'mod_mtssdashboard'),
-        ['class'=>'text-center']);
-    echo html_writer::tag('canvas', '', ['id'=>'chartRadar']);
-    echo html_writer::end_div();
-
-    echo html_writer::end_div();
-
-    // Proficiency colour legend.
-    /*echo html_writer::start_div('d-flex flex-wrap gap-2 mb-3');
-    foreach ($profcolors as $level => $color) {
-        echo html_writer::tag('span',
-            html_writer::tag('span', '', [
-                'style' => "display:inline-block;width:14px;height:14px;" .
-                           "background:{$color};border-radius:50%;margin-right:4px;"
-            ]) . htmlspecialchars($level) . ' (dot color)',
-            ['class' => 'small text-muted']
+        // Trend line chart.
+        echo html_writer::start_div('col-md-8');
+        echo html_writer::tag(
+            'h5',
+            get_string('chart_trend', 'mod_mtssdashboard'),
+            ['class' => 'text-center']
         );
-    }
-    echo html_writer::end_div();*/
+        echo html_writer::start_div('', ['style' => 'position:relative; height:400px;']);
+        echo html_writer::tag('canvas', '', ['id' => 'chartTrend']);
+        echo html_writer::end_div();
+        echo html_writer::end_div();
 
-    // Collapsed data table.
-    if (!empty($results)) {
-        echo stv_render_table($results, [$student]);
-    }
+        // Radar chart.
+        echo html_writer::start_div('col-md-4');
+        echo html_writer::tag(
+            'h5',
+            get_string('chart_radar', 'mod_mtssdashboard'),
+            ['class' => 'text-center']
+        );
+        echo html_writer::tag('canvas', '', ['id' => 'chartRadar']);
+        echo html_writer::end_div();
 
-    // ── Chart.js ──────────────────────────────────────────────────────────────
-    $trendJson         = json_encode($trendsets);
-    $yearLabels        = json_encode($assessmentlabels);
-    $radarLabels       = json_encode($radarLabelsArr);
-    $radarDatasetsJson = json_encode($radar_datasets);
+        echo html_writer::end_div();
 
-    echo <<<JS
+        // Proficiency colour legend was disabled; the old commented-out code is in git history.
+
+        // Collapsed data table.
+        if (!empty($results)) {
+            echo stv_render_table($results, [$student]);
+        }
+
+        // Chart.js.
+        $trendjson         = json_encode($trendsets);
+        $yearlabels        = json_encode($assessmentlabels);
+        $radarlabels       = json_encode($radarlabelsarr);
+        $radardatasetsjson = json_encode($radardatasets);
+
+        echo <<<JS
 <script>
 (function(){
     // Trend line chart.
@@ -2369,7 +2646,7 @@ if ($tab === 'student') {
     };
     new Chart(ctx1, {
         type: 'line',
-        data: { labels: {$yearLabels}, datasets: {$trendJson} },
+        data: { labels: {$yearlabels}, datasets: {$trendjson} },
         plugins: [scorelabelPlugin],
         options: {
             responsive: true,
@@ -2418,8 +2695,8 @@ if ($tab === 'student') {
     new Chart(ctx2, {
         type: 'radar',
         data: {
-            labels: {$radarLabels},
-            datasets: {$radarDatasetsJson}
+            labels: {$radarlabels},
+            datasets: {$radardatasetsjson}
         },
         options: {
             responsive: true,
@@ -2458,11 +2735,9 @@ JS;
     }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// GRADES TAB
-// ═══════════════════════════════════════════════════════════════════════════════
+// ----------------------------------------------------------------------
+// GRADES TAB.
 if ($tab === 'grades') {
-
     $gradecolors = [
         'A'  => '#1a6e3c',
         'A-' => '#1a7a45',
@@ -2479,11 +2754,23 @@ if ($tab === 'grades') {
     $defaultcolor = '#adb5bd';
 
     // Apply demographic filters before fetching grade data.
-    $gradestudents = stv_filter_students($tabstudents, $f_gender, $f_race, $f_ed,
-                                         $f_swd, $f_el, $f_504, $f_iep, $f_gifted);
+    $gradestudents = stv_filter_students(
+        $tabstudents,
+        $fgender,
+        $frace,
+        $fed,
+        $fswd,
+        $fel,
+        $f504,
+        $fiep,
+        $fgifted
+    );
 
     $gradesdata = mtssdashboard_get_grades_data(
-        $gradestudents, $course->id, $courselevel, $levelcfg
+        $gradestudents,
+        $course->id,
+        $courselevel,
+        $levelcfg
     );
 
     if (empty($gradesdata->scale)) {
@@ -2500,8 +2787,8 @@ if ($tab === 'grades') {
 
     $alljs = '';
 
-    // ── Helper: build grade counts table HTML ─────────────────────────────────
-    $render_counts_table = function($counts, $gradecolors, $defaultcolor, $scale) {
+    // Helper: build grade counts table HTML.
+    $rendercountstable = function ($counts, $gradecolors, $defaultcolor, $scale) {
         $total = array_sum($counts);
         $t = new html_table();
         $t->head = ['Grade', 'Students', '%'];
@@ -2526,15 +2813,16 @@ if ($tab === 'grades') {
         return html_writer::table($t);
     };
 
-    // ── Helper: build legend HTML from scale ──────────────────────────────────
-    $render_legend = function($scale, $gradecolors, $defaultcolor) {
+    // Helper: build legend HTML from scale.
+    $renderlegend = function ($scale, $gradecolors, $defaultcolor) {
         $out = html_writer::start_div('d-flex flex-wrap gap-2 mt-2');
         foreach ($scale as $row) {
             $color = $gradecolors[$row->letter] ?? $defaultcolor;
-            $out .= html_writer::tag('span',
+            $out .= html_writer::tag(
+                'span',
                 html_writer::tag('span', '', [
                     'style' => "display:inline-block;width:13px;height:13px;" .
-                               "background:{$color};border-radius:3px;margin-right:3px;"
+                               "background:{$color};border-radius:3px;margin-right:3px;",
                 ]) . htmlspecialchars($row->letter),
                 ['class' => 'badge text-dark border', 'style' => 'font-size:0.82em;']
             );
@@ -2543,10 +2831,18 @@ if ($tab === 'grades') {
         return $out;
     };
 
-    // ── Helper: render a doughnut canvas + JS only (no table) ─────────────────
-    $render_donut_js = function(
-        $canvasid, $entries, $scale, $gradecolors, $defaultcolor, $withtable = false
-    ) use (&$alljs, $render_counts_table) {
+    // Helper: render a doughnut canvas + JS only (no table).
+    $renderdonutjs = function (
+        $canvasid,
+        $entries,
+        $scale,
+        $gradecolors,
+        $defaultcolor,
+        $withtable = false
+    ) use (
+        &$alljs,
+        $rendercountstable
+) {
         $counts  = mtssdashboard_count_letters($entries, $scale);
         if (empty($counts)) {
             return ['html' => '', 'counts' => []];
@@ -2560,11 +2856,14 @@ if ($tab === 'grades') {
         ));
         $chartid = 'gc_' . preg_replace('/[^a-z0-9]/i', '_', $canvasid);
 
-        $html = html_writer::tag('canvas', '',
-            ['id' => $chartid, 'style' => 'max-height:240px;']);
+        $html = html_writer::tag(
+            'canvas',
+            '',
+            ['id' => $chartid, 'style' => 'max-height:240px;']
+        );
 
         if ($withtable) {
-            $html .= $render_counts_table($counts, $gradecolors, $defaultcolor, $scale);
+            $html .= $rendercountstable($counts, $gradecolors, $defaultcolor, $scale);
         }
 
         $alljs .= <<<JS
@@ -2635,7 +2934,7 @@ JS;
         return ['html' => $html, 'counts' => $counts];
     };
 
-    // ── Section 1: This Course (or All Courses if no grade data) ─────────────
+    // Section 1: This Course (or All Courses if no grade data).
     $entries1 = $gradesdata->hasthiscourse ? $gradesdata->thiscourse : $gradesdata->detail;
     $heading1 = $gradesdata->hasthiscourse
         ? get_string('grades_thiscourse', 'mod_mtssdashboard') . ' — ' . format_string($course->fullname)
@@ -2646,28 +2945,34 @@ JS;
 
     // Left col: donut.
     echo html_writer::start_div('col-md-4');
-    $r1 = $render_donut_js('maincourse', $entries1,
-        $gradesdata->scale, $gradecolors, $defaultcolor, false);
+    $r1 = $renderdonutjs(
+        'maincourse',
+        $entries1,
+        $gradesdata->scale,
+        $gradecolors,
+        $defaultcolor,
+        false
+    );
     echo $r1['html'];
     echo html_writer::end_div();
 
     // Right col: table + legend.
     echo html_writer::start_div('col-md-4');
     if (!empty($r1['counts'])) {
-        echo $render_counts_table($r1['counts'], $gradecolors, $defaultcolor, $gradesdata->scale);
-        echo $render_legend($gradesdata->scale, $gradecolors, $defaultcolor);
+        echo $rendercountstable($r1['counts'], $gradecolors, $defaultcolor, $gradesdata->scale);
+        echo $renderlegend($gradesdata->scale, $gradecolors, $defaultcolor);
     }
     echo html_writer::end_div();
 
-    echo html_writer::end_div(); // .row
+    echo html_writer::end_div(); // End .row.
 
-    // ── Section 2: By Subject Category ───────────────────────────────────────
+    // Section 2: By Subject Category.
     $catkeys = [
-        'math'          => get_string('grades_category_math',         'mod_mtssdashboard'),
-        'english'       => get_string('grades_category_english',      'mod_mtssdashboard'),
-        'science'       => get_string('grades_category_science',      'mod_mtssdashboard'),
-        'socialstudies' => get_string('grades_category_socialstudies','mod_mtssdashboard'),
-        'electives'     => get_string('grades_category_electives',    'mod_mtssdashboard'),
+        'math'          => get_string('grades_category_math', 'mod_mtssdashboard'),
+        'english'       => get_string('grades_category_english', 'mod_mtssdashboard'),
+        'science'       => get_string('grades_category_science', 'mod_mtssdashboard'),
+        'socialstudies' => get_string('grades_category_socialstudies', 'mod_mtssdashboard'),
+        'electives'     => get_string('grades_category_electives', 'mod_mtssdashboard'),
     ];
 
     $activecats = array_filter($gradesdata->categories, fn($e) => !empty($e));
@@ -2681,11 +2986,19 @@ JS;
                 continue;
             }
             echo html_writer::start_div('col-md-4 mb-4 text-center');
-            echo html_writer::tag('h5', htmlspecialchars($label),
-                ['class' => 'text-center text-primary']);
-            $r = $render_donut_js('cat_' . $key,
+            echo html_writer::tag(
+                'h5',
+                htmlspecialchars($label),
+                ['class' => 'text-center text-primary']
+            );
+            $r = $renderdonutjs(
+                'cat_' . $key,
                 $gradesdata->categories[$key],
-                $gradesdata->scale, $gradecolors, $defaultcolor, false);
+                $gradesdata->scale,
+                $gradecolors,
+                $defaultcolor,
+                false
+            );
             echo $r['html'];
             echo html_writer::end_div();
             $ci++;
@@ -2697,11 +3010,10 @@ JS;
         echo html_writer::end_div();
     }
 
-    // ── Collapsed detail table ────────────────────────────────────────────────
+    // Collapsed detail table.
     if (!empty($gradesdata->detail)) {
         usort($gradesdata->detail, fn($a, $b) =>
-            strcmp($a['name'], $b['name']) ?: strcmp($a['coursename'], $b['coursename'])
-        );
+            strcmp($a['name'], $b['name']) ?: strcmp($a['coursename'], $b['coursename']));
 
         $uid = uniqid('stv_gtbl_');
         echo '<div class="mt-4">';
@@ -2714,11 +3026,11 @@ JS;
 
         $table = new html_table();
         $table->head = [
-            get_string('grades_detail_student',  'mod_mtssdashboard'),
-            get_string('grades_detail_course',   'mod_mtssdashboard'),
+            get_string('grades_detail_student', 'mod_mtssdashboard'),
+            get_string('grades_detail_course', 'mod_mtssdashboard'),
             get_string('grades_detail_category', 'mod_mtssdashboard'),
-            get_string('grades_detail_letter',   'mod_mtssdashboard'),
-            get_string('grades_detail_pct',      'mod_mtssdashboard'),
+            get_string('grades_detail_letter', 'mod_mtssdashboard'),
+            get_string('grades_detail_pct', 'mod_mtssdashboard'),
         ];
         $table->attributes['class'] = 'generaltable table-sm table-hover';
         $catlabels = $catkeys + ['thiscourse' => format_string($course->fullname)];
@@ -2744,25 +3056,39 @@ JS;
 }
 
 
-// ── CSV download handler moved — see before $OUTPUT->header() above.
+// CSV download handler moved — see before $OUTPUT->header() above.
 // placeholder removed.
-if (optional_param('action', '', PARAM_ALPHANUMEXT) === 'downloadcsv'
-        && $tab === 'earlywarning') {
-
+if (
+    optional_param('action', '', PARAM_ALPHANUMEXT) === 'downloadcsv'
+        && $tab === 'earlywarning'
+) {
     require_sesskey();
 
     $schoollevel = stv_get_school_level_for_course($course);
 
-    $ewstudents = stv_filter_students($tabstudents, $f_gender, $f_race, $f_ed,
-                                      $f_swd, $f_el, $f_504, $f_iep, $f_gifted);
+    $ewstudents = stv_filter_students(
+        $tabstudents,
+        $fgender,
+        $frace,
+        $fed,
+        $fswd,
+        $fel,
+        $f504,
+        $fiep,
+        $fgifted
+    );
 
     $userids        = [];
     $studentnumbers = [];
     $ssids          = [];
     foreach ($ewstudents as $s) {
         $userids[] = (int) $s->userid;
-        if (!empty($s->idnumber)) { $studentnumbers[] = (int) $s->idnumber; }
-        if (!empty($s->ssid))     { $ssids[] = $s->ssid; }
+        if (!empty($s->idnumber)) {
+            $studentnumbers[] = (int) $s->idnumber;
+        }
+        if (!empty($s->ssid)) {
+            $ssids[] = $s->ssid;
+        }
     }
 
     $incidents  = stv_get_office_incidents_by_studentnumber($studentnumbers);
@@ -2770,8 +3096,8 @@ if (optional_param('action', '', PARAM_ALPHANUMEXT) === 'downloadcsv'
     $failed     = stv_get_failed_courses_by_userid($userids);
     $gpas       = stv_get_gpa_by_userid($userids, $schoollevel);
     $lowost     = stv_get_low_ost_by_ssid($ssids);
-    $iready_ela = stv_get_iready_ela_by_studentnumber($studentnumbers);
-    $iready_mth = stv_get_iready_math_by_studentnumber($studentnumbers);
+    $ireadyela = stv_get_iready_ela_by_studentnumber($studentnumbers);
+    $ireadymth = stv_get_iready_math_by_studentnumber($studentnumbers);
 
     if ($schoollevel === 'es') {
         $metrickeys = [
@@ -2819,8 +3145,8 @@ if (optional_param('action', '', PARAM_ALPHANUMEXT) === 'downloadcsv'
                 'office_incidents'       => $incidents[$sn] ?? 0,
                 'course_failure_count'   => $failed[$uid] ?? 0,
                 'gpa'                    => $gpas[$uid] ?? null,
-                'iready_ela_percentile'  => $iready_ela[$sn] ?? null,
-                'iready_math_percentile' => $iready_mth[$sn] ?? null,
+                'iready_ela_percentile'  => $ireadyela[$sn] ?? null,
+                'iready_math_percentile' => $ireadymth[$sn] ?? null,
                 'ost_performance'        => $lowost[$sid] ?? 0,
             ],
         ];
@@ -2836,9 +3162,13 @@ if (optional_param('action', '', PARAM_ALPHANUMEXT) === 'downloadcsv'
         $flagcount = 0;
         foreach ($metrickeys as $mkey) {
             $value = $row->metrics[$mkey];
-            if ($value === null) { continue; }
+            if ($value === null) {
+                continue;
+            }
             $color = stv_get_band_color($schoollevel, $mkey, $value);
-            if (stv_band_is_flagged($color)) { $flagcount++; }
+            if (stv_band_is_flagged($color)) {
+                $flagcount++;
+            }
         }
         $row->riskkey   = stv_compute_risk_level($flagcount, $schoollevel);
         $row->flagcount = $flagcount;
@@ -2846,15 +3176,17 @@ if (optional_param('action', '', PARAM_ALPHANUMEXT) === 'downloadcsv'
 
     if ($ewsortcsv === 'risk') {
         $riskrank = ['extreme' => 0, 'moderate' => 1, 'low' => 2, 'none' => 3];
-        usort($rows, function($a, $b) use ($riskrank) {
+        usort($rows, function ($a, $b) use ($riskrank) {
             $ra = $riskrank[$a->riskkey] ?? 99;
             $rb = $riskrank[$b->riskkey] ?? 99;
-            if ($ra !== $rb) { return $ra - $rb; }
+            if ($ra !== $rb) {
+                return $ra - $rb;
+            }
             $lc = strcasecmp($a->lastname, $b->lastname);
             return $lc !== 0 ? $lc : strcasecmp($a->firstname, $b->firstname);
         });
     } else {
-        usort($rows, function($a, $b) {
+        usort($rows, function ($a, $b) {
             $lc = strcasecmp($a->lastname, $b->lastname);
             return $lc !== 0 ? $lc : strcasecmp($a->firstname, $b->firstname);
         });
@@ -2909,13 +3241,13 @@ if (optional_param('action', '', PARAM_ALPHANUMEXT) === 'downloadcsv'
     exit;
 }
 
-// ── Early Warning tab ────────────────────────────────────────────────────────
+// Early Warning tab.
 if ($tab === 'earlywarning') {
-
     $schoollevel = stv_get_school_level_for_course($course);
 
     echo $OUTPUT->heading(get_string('ew_heading', 'mod_mtssdashboard'), 3);
-    echo html_writer::tag('p',
+    echo html_writer::tag(
+        'p',
         get_string('ew_intro', 'mod_mtssdashboard'),
         ['class' => 'text-muted']
     );
@@ -2930,16 +3262,34 @@ if ($tab === 'earlywarning') {
         'ewsort' => $togglesort,
     ];
     // Carry forward any active demographic filters.
-    if ($f_gender !== '') { $sorturlparams['f_gender'] = $f_gender; }
-    if ($f_race   !== '') { $sorturlparams['f_race']   = $f_race;   }
-    if ($f_ed     !== '') { $sorturlparams['f_ed']     = $f_ed;     }
-    if ($f_swd    !== '') { $sorturlparams['f_swd']    = $f_swd;    }
-    if ($f_el     !== '') { $sorturlparams['f_el']     = $f_el;     }
-    if ($f_504    !== '') { $sorturlparams['f_504']    = $f_504;    }
-    if ($f_iep    !== '') { $sorturlparams['f_iep']    = $f_iep;    }
-    if ($f_gifted !== '') { $sorturlparams['f_gifted'] = $f_gifted; }
+    if ($fgender !== '') {
+        $sorturlparams['f_gender'] = $fgender;
+    }
+    if ($frace !== '') {
+        $sorturlparams['f_race']   = $frace;
+    }
+    if ($fed !== '') {
+        $sorturlparams['f_ed']     = $fed;
+    }
+    if ($fswd !== '') {
+        $sorturlparams['f_swd']    = $fswd;
+    }
+    if ($fel !== '') {
+        $sorturlparams['f_el']     = $fel;
+    }
+    if ($f504 !== '') {
+        $sorturlparams['f_504']    = $f504;
+    }
+    if ($fiep !== '') {
+        $sorturlparams['f_iep']    = $fiep;
+    }
+    if ($fgifted !== '') {
+        $sorturlparams['f_gifted'] = $fgifted;
+    }
     // Carry forward group selection.
-    if ($groupid > 0) { $sorturlparams['group'] = $groupid; }
+    if ($groupid > 0) {
+        $sorturlparams['group'] = $groupid;
+    }
     $sorturl = new moodle_url('/mod/mtssdashboard/view.php', $sorturlparams);
 
     // CSV download URL — carries all the same filters plus current sort order.
@@ -2950,24 +3300,45 @@ if ($tab === 'earlywarning') {
         'ewsort'  => $ewsort,
         'sesskey' => sesskey(),
     ];
-    if ($f_gender !== '') { $csvurlparams['f_gender'] = $f_gender; }
-    if ($f_race   !== '') { $csvurlparams['f_race']   = $f_race;   }
-    if ($f_ed     !== '') { $csvurlparams['f_ed']     = $f_ed;     }
-    if ($f_swd    !== '') { $csvurlparams['f_swd']    = $f_swd;    }
-    if ($f_el     !== '') { $csvurlparams['f_el']     = $f_el;     }
-    if ($f_504    !== '') { $csvurlparams['f_504']    = $f_504;    }
-    if ($f_iep    !== '') { $csvurlparams['f_iep']    = $f_iep;    }
-    if ($f_gifted !== '') { $csvurlparams['f_gifted'] = $f_gifted; }
-    if ($groupid > 0)     { $csvurlparams['group']    = $groupid;  }
+    if ($fgender !== '') {
+        $csvurlparams['f_gender'] = $fgender;
+    }
+    if ($frace !== '') {
+        $csvurlparams['f_race']   = $frace;
+    }
+    if ($fed !== '') {
+        $csvurlparams['f_ed']     = $fed;
+    }
+    if ($fswd !== '') {
+        $csvurlparams['f_swd']    = $fswd;
+    }
+    if ($fel !== '') {
+        $csvurlparams['f_el']     = $fel;
+    }
+    if ($f504 !== '') {
+        $csvurlparams['f_504']    = $f504;
+    }
+    if ($fiep !== '') {
+        $csvurlparams['f_iep']    = $fiep;
+    }
+    if ($fgifted !== '') {
+        $csvurlparams['f_gifted'] = $fgifted;
+    }
+    if ($groupid > 0) {
+        $csvurlparams['group']    = $groupid;
+    }
     $csvurl = new moodle_url('/mod/mtssdashboard/view.php', $csvurlparams);
 
-    echo html_writer::tag('p',
-        html_writer::link($sorturl,
+    echo html_writer::tag(
+        'p',
+        html_writer::link(
+            $sorturl,
             get_string($togglekey, 'mod_mtssdashboard'),
             ['class' => 'btn btn-outline-primary btn-sm']
         ) .
         ' ' .
-        html_writer::link($csvurl,
+        html_writer::link(
+            $csvurl,
             '⬇ Download CSV',
             ['class' => 'btn btn-outline-secondary btn-sm']
         ),
@@ -2975,8 +3346,17 @@ if ($tab === 'earlywarning') {
     );
 
     // Apply demographic filters on top of group-filtered $tabstudents.
-    $ewstudents = stv_filter_students($tabstudents, $f_gender, $f_race, $f_ed,
-                                      $f_swd, $f_el, $f_504, $f_iep, $f_gifted);
+    $ewstudents = stv_filter_students(
+        $tabstudents,
+        $fgender,
+        $frace,
+        $fed,
+        $fswd,
+        $fel,
+        $f504,
+        $fiep,
+        $fgifted
+    );
 
     if (empty($ewstudents)) {
         echo $OUTPUT->notification(
@@ -2984,13 +3364,13 @@ if ($tab === 'earlywarning') {
             'notifymessage'
         );
     } else {
-        // ── Collect ID arrays for bulk queries ─────────────────────────────────
+        // Collect ID arrays for bulk queries.
         $userids        = [];
         $studentnumbers = [];
         $ssids          = [];
         foreach ($ewstudents as $s) {
             $userids[] = (int) $s->userid;
-            // s->idnumber holds the school's StudentNumber (per existing pattern).
+            // S->idnumber holds the school's StudentNumber (per existing pattern).
             if (!empty($s->idnumber)) {
                 $studentnumbers[] = (int) $s->idnumber;
             }
@@ -2999,27 +3379,27 @@ if ($tab === 'earlywarning') {
             }
         }
 
-        // ── Bulk fetch all metric data in parallel ─────────────────────────────
+        // Bulk fetch all metric data in parallel.
         $incidents  = stv_get_office_incidents_by_studentnumber($studentnumbers);
         $attendance = stv_get_attendance_by_studentnumber($studentnumbers);
         $failed     = stv_get_failed_courses_by_userid($userids);
         $gpas       = stv_get_gpa_by_userid($userids, $schoollevel);
         $lowost     = stv_get_low_ost_by_ssid($ssids);
-        $iready_ela = stv_get_iready_ela_by_studentnumber($studentnumbers);
-        $iready_mth = stv_get_iready_math_by_studentnumber($studentnumbers);
-        $iready_diag = stv_get_iready_diagnostics_by_studentnumber($studentnumbers);
+        $ireadyela = stv_get_iready_ela_by_studentnumber($studentnumbers);
+        $ireadymth = stv_get_iready_math_by_studentnumber($studentnumbers);
+        $ireadydiag = stv_get_iready_diagnostics_by_studentnumber($studentnumbers);
         $rimpdata    = stv_get_rimp_by_studentnumber($studentnumbers);
-        $iready_days = ($schoollevel === 'ms')
+        $ireadydays = ($schoollevel === 'ms')
             ? stv_get_iready_days_since_lesson($studentnumbers)
             : [];
 
-        // ── Assemble per-student rows for rendering ────────────────────────────
+        // Assemble per-student rows for rendering.
         $rows = [];
         foreach ($ewstudents as $s) {
             $sn   = !empty($s->idnumber) ? (int) $s->idnumber : 0;
             $uid  = (int) $s->userid;
             $sid  = !empty($s->ssid) ? $s->ssid : '';
-            $diag = $iready_diag[$sn] ?? null;
+            $diag = $ireadydiag[$sn] ?? null;
 
             $row = (object) [
                 'userid'         => $uid,
@@ -3033,24 +3413,24 @@ if ($tab === 'earlywarning') {
                     'office_incidents'       => $incidents[$sn] ?? 0,
                     'course_failure_count'   => $failed[$uid] ?? 0,
                     'gpa'                    => $gpas[$uid] ?? null,
-                    'iready_ela_percentile'  => $iready_ela[$sn] ?? null,
-                    'iready_math_percentile' => $iready_mth[$sn] ?? null,
-                    'ela_fall_score'         => $diag->ela_fall_score   ?? null,
-                    'ela_fall_pct'           => $diag->ela_fall_pct     ?? null,
+                    'iready_ela_percentile'  => $ireadyela[$sn] ?? null,
+                    'iready_math_percentile' => $ireadymth[$sn] ?? null,
+                    'ela_fall_score'         => $diag->ela_fall_score ?? null,
+                    'ela_fall_pct'           => $diag->ela_fall_pct ?? null,
                     'ela_winter_score'       => $diag->ela_winter_score ?? null,
-                    'ela_winter_pct'         => $diag->ela_winter_pct   ?? null,
+                    'ela_winter_pct'         => $diag->ela_winter_pct ?? null,
                     'ela_spring_score'       => $diag->ela_spring_score ?? null,
-                    'ela_spring_pct'         => $diag->ela_spring_pct   ?? null,
-                    'math_fall_score'        => $diag->math_fall_score   ?? null,
-                    'math_fall_pct'          => $diag->math_fall_pct     ?? null,
+                    'ela_spring_pct'         => $diag->ela_spring_pct ?? null,
+                    'math_fall_score'        => $diag->math_fall_score ?? null,
+                    'math_fall_pct'          => $diag->math_fall_pct ?? null,
                     'math_winter_score'      => $diag->math_winter_score ?? null,
-                    'math_winter_pct'        => $diag->math_winter_pct   ?? null,
+                    'math_winter_pct'        => $diag->math_winter_pct ?? null,
                     'math_spring_score'      => $diag->math_spring_score ?? null,
-                    'math_spring_pct'        => $diag->math_spring_pct   ?? null,
+                    'math_spring_pct'        => $diag->math_spring_pct ?? null,
                     'ost_performance'        => $lowost[$sid] ?? 0,
                     'rimp'                   => $rimpdata[$sn] ?? 0,
-                    'iready_ela_days'        => $iready_days[$sn]->ela_days  ?? null,
-                    'iready_math_days'       => $iready_days[$sn]->math_days ?? null,
+                    'iready_ela_days'        => $ireadydays[$sn]->ela_days ?? null,
+                    'iready_math_days'       => $ireadydays[$sn]->math_days ?? null,
                 ],
             ];
 
@@ -3063,32 +3443,36 @@ if ($tab === 'earlywarning') {
             // Blank lesson-days for grades that don't take iReady lessons, and
             // for RIMP students in grades set on the "for RIMP Students" card
             // (Warning Levels tab). Blank = "—" and not counted in risk.
-            $row->metrics = stv_apply_lessons_off($row->metrics, $row->gradelevel, $schoollevel,
-                !empty($rimpdata[$sn]));
+            $row->metrics = stv_apply_lessons_off(
+                $row->metrics,
+                $row->gradelevel,
+                $schoollevel,
+                !empty($rimpdata[$sn])
+            );
 
             $rows[] = $row;
         }
 
-        // ── Sort: alphabetical by default, or by risk if requested ─────────────
+        // Sort: alphabetical by default, or by risk if requested.
         // Risk sort runs AFTER risk computation, so we just record which sort
         // to apply and do it after the foreach loop that assigns ->riskkey.
         $applysortbyrisk = ($ewsort === 'risk');
 
         // Alphabetical sort runs immediately (it doesn't depend on riskkey).
         if (!$applysortbyrisk) {
-            usort($rows, function($a, $b) {
+            usort($rows, function ($a, $b) {
                 $lc = strcasecmp($a->lastname, $b->lastname);
                 return $lc !== 0 ? $lc : strcasecmp($a->firstname, $b->firstname);
             });
         }
 
-        // ── Define which columns to show per school level ──────────────────────
+        // Define which columns to show per school level.
         // ES gets the smaller metric set (no GPA, no Failed Courses, no Office).
         // HS and MS get all 8.
         if ($schoollevel === 'es') {
             $metrickeys = [
                 'total_hours_missed',
-                // 'unexcused_hours_missed', // Hidden per ES request 2026-05-20 — restore if needed.
+                // Unexcused hours column hidden per ES request 2026-05-20; re-add 'unexcused_hours_missed' here to restore.
                 'ela_fall_score',
                 'ela_fall_pct',
                 'ela_winter_score',
@@ -3174,7 +3558,7 @@ if ($tab === 'earlywarning') {
             'extreme'  => '#f8d7da',
         ];
 
-        // ── Compute Overall Risk for each student row ──────────────────────────
+        // Compute Overall Risk for each student row.
         foreach ($rows as $row) {
             $flagcount = 0;
             foreach ($metrickeys as $mkey) {
@@ -3190,7 +3574,7 @@ if ($tab === 'earlywarning') {
             $row->riskkey = stv_compute_risk_level($flagcount, $schoollevel);
             $row->flagcount = $flagcount;
         }
-        
+
         // If sorting by risk, do it now that every row has a riskkey assigned.
         if ($applysortbyrisk) {
             $riskrank = [
@@ -3199,7 +3583,7 @@ if ($tab === 'earlywarning') {
                 'low'      => 2,
                 'none'     => 3,
             ];
-            usort($rows, function($a, $b) use ($riskrank) {
+            usort($rows, function ($a, $b) use ($riskrank) {
                 $ra = $riskrank[$a->riskkey] ?? 99;
                 $rb = $riskrank[$b->riskkey] ?? 99;
                 if ($ra !== $rb) {
@@ -3210,7 +3594,7 @@ if ($tab === 'earlywarning') {
             });
         }
 
-        // ── Build the table ───────────────────────────────────────────────────
+        // Build the table.
         echo html_writer::start_tag('div', ['style' => 'overflow-x:auto; overflow-y:auto; max-height:70vh;']);
         echo html_writer::start_tag('table', [
             'class' => 'generaltable stv-earlywarning-table',
@@ -3220,12 +3604,14 @@ if ($tab === 'earlywarning') {
         // Header row.
         echo html_writer::start_tag('thead');
         echo html_writer::start_tag('tr', ['style' => 'background:#f1f3f5;']);
-        $thstyle = 'padding:0.5rem 0.3rem; border:1px solid #dee2e6; text-align:center; font-weight:600; position:sticky; top:0; z-index:2; background:#f1f3f5; min-width:70px;';
-        $thstickystyle = $thstyle . ' position:sticky; left:0; top:0; z-index:4; background:#f1f3f5; text-align:left; min-width:160px;';
-        echo html_writer::tag('th', get_string('ew_col_name',      'mod_mtssdashboard'), ['style' => $thstickystyle]);
-        echo html_writer::tag('th', get_string('ew_col_grade',     'mod_mtssdashboard'), ['style' => $thstyle]);
+        $thstyle = 'padding:0.5rem 0.3rem; border:1px solid #dee2e6; text-align:center; font-weight:600; ' .
+            'position:sticky; top:0; z-index:2; background:#f1f3f5; min-width:70px;';
+        $thstickystyle = $thstyle . ' position:sticky; left:0; top:0; z-index:4; background:#f1f3f5; text-align:left; ' .
+            'min-width:160px;';
+        echo html_writer::tag('th', get_string('ew_col_name', 'mod_mtssdashboard'), ['style' => $thstickystyle]);
+        echo html_writer::tag('th', get_string('ew_col_grade', 'mod_mtssdashboard'), ['style' => $thstyle]);
         echo html_writer::tag('th', get_string('ew_col_studentid', 'mod_mtssdashboard'), ['style' => $thstyle]);
-        echo html_writer::tag('th', get_string('ew_col_overall',   'mod_mtssdashboard'), ['style' => $thstyle]);
+        echo html_writer::tag('th', get_string('ew_col_overall', 'mod_mtssdashboard'), ['style' => $thstyle]);
         foreach ($metrickeys as $mkey) {
             // Use ES-specific OST label if appropriate.
             $strkey = $colkey[$mkey];
@@ -3233,15 +3619,19 @@ if ($tab === 'earlywarning') {
                 // Reuse the Warning Levels metric label override.
                 $manager = get_string_manager();
                 if ($manager->string_exists('metric_ost_performance_es', 'mod_mtssdashboard')) {
-                    echo html_writer::tag('th',
+                    echo html_writer::tag(
+                        'th',
                         get_string('metric_ost_performance_es', 'mod_mtssdashboard'),
-                        ['style' => $thstyle]);
+                        ['style' => $thstyle]
+                    );
                     continue;
                 }
             }
-            echo html_writer::tag('th',
+            echo html_writer::tag(
+                'th',
                 get_string($strkey, 'mod_mtssdashboard'),
-                ['style' => $thstyle]);
+                ['style' => $thstyle]
+            );
         }
         echo html_writer::end_tag('tr');
         echo html_writer::end_tag('thead');
@@ -3261,16 +3651,19 @@ if ($tab === 'earlywarning') {
             }
         }
         $planbaseurl = new moodle_url('/mod/mtssdashboard/plan.php', ['cmid' => $cm->id]);
-        echo html_writer::tag('style', '.mtssdash-plan-link, .mtssdash-plan-link:visited { color:#e07b00; font-weight:600; }');
+        echo html_writer::tag('style', '.mtssdash-plan-link, .mtssdash-plan-link:visited { color:#e07b00; ' .
+            'font-weight:600; }');
 
         foreach ($rows as $row) {
             echo html_writer::start_tag('tr');
 
             // Student name (last, first) — sticky left column.
             $tdstickystyle = $tdstyle . ' position:sticky; left:0; z-index:1; background:#fff; text-align:left;';
-            echo html_writer::tag('td',
+            echo html_writer::tag(
+                'td',
                 s($row->lastname . ', ' . $row->firstname),
-                ['style' => $tdstickystyle]);
+                ['style' => $tdstickystyle]
+            );
 
             // Grade.
             echo html_writer::tag('td', s($row->gradelevel), ['style' => $tdstyle]);
@@ -3278,10 +3671,12 @@ if ($tab === 'earlywarning') {
             // Student ID — link to plan PDF if one exists for this student.
             if ($row->studentnumber > 0 && isset($planfiles[$row->studentnumber])) {
                 $planurl = new moodle_url($planbaseurl, ['ssid' => $row->studentnumber]);
-                $snlabel = html_writer::link($planurl->out(false),
+                $snlabel = html_writer::link(
+                    $planurl->out(false),
                     (string) $row->studentnumber,
                     ['target' => '_blank', 'title' => get_string('plan_view', 'mod_mtssdashboard'),
-                     'class' => 'mtssdash-plan-link']);
+                    'class' => 'mtssdash-plan-link']
+                );
             } else {
                 $snlabel = $row->studentnumber > 0 ? (string) $row->studentnumber : $nodata;
             }
@@ -3290,9 +3685,11 @@ if ($tab === 'earlywarning') {
             // Overall Risk Level — colored cell with risk label.
             $riskcolor = $riskbg[$row->riskkey] ?? '#fff';
             $risklabel = get_string('ew_risk_' . $row->riskkey, 'mod_mtssdashboard');
-            echo html_writer::tag('td',
+            echo html_writer::tag(
+                'td',
                 s($risklabel),
-                ['style' => $tdstyle . " background:$riskcolor; font-weight:600;"]);
+                ['style' => $tdstyle . " background:$riskcolor; font-weight:600;"]
+            );
 
             // Metric cells.
             foreach ($metrickeys as $mkey) {
@@ -3301,30 +3698,40 @@ if ($tab === 'earlywarning') {
                 // RIMP column — link to print view if student has a RIMP.
                 if ($mkey === 'rimp') {
                     if (!empty($value)) {
-                        $printurl = new moodle_url('/mod/mtssdashboard/rimp_print.php',
-                            ['id' => $cm->id, 'sn' => $row->studentnumber]);
-                        $cell = html_writer::tag('a', '&#10003;',
+                        $printurl = new moodle_url(
+                            '/mod/mtssdashboard/rimp_print.php',
+                            ['id' => $cm->id, 'sn' => $row->studentnumber]
+                        );
+                        $cell = html_writer::tag(
+                            'a',
+                            '&#10003;',
                             ['href'   => $printurl->out(false),
                              'target' => '_blank',
                              'title'  => get_string('rimp_btn_print', 'mod_mtssdashboard'),
-                             'style'  => 'font-size:1.2em; font-weight:bold; color:#155724;']);
+                            'style'  => 'font-size:1.2em; font-weight:bold; color:#155724;']
+                        );
                         $cellbg = ' background:#d4edda;';
                     } else {
                         $cell   = '—';
                         $cellbg = '';
                     }
-                    echo html_writer::tag('td', $cell,
-                        ['style' => $tdstyle . ' text-align:center;' . $cellbg]);
+                    echo html_writer::tag(
+                        'td',
+                        $cell,
+                        ['style' => $tdstyle . ' text-align:center;' . $cellbg]
+                    );
                     continue;
                 }
 
-                // (iReady columns now have live data; the "coming soon"
-                // stub treatment has been removed.)
+                // Note: iReady columns now have live data; the "coming soon"
+                // stub treatment has been removed.
 
                 if ($value === null) {
-                    echo html_writer::tag('td',
+                    echo html_writer::tag(
+                        'td',
                         s($nodata),
-                        ['style' => $tdstyle . ' color:#adb5bd;']);
+                        ['style' => $tdstyle . ' color:#adb5bd;']
+                    );
                     continue;
                 }
 
@@ -3344,9 +3751,11 @@ if ($tab === 'earlywarning') {
                     $display = (string) (int) $value;
                 }
 
-                echo html_writer::tag('td',
+                echo html_writer::tag(
+                    'td',
                     s($display),
-                    ['style' => $tdstyle . " background:$bg;"]);
+                    ['style' => $tdstyle . " background:$bg;"]
+                );
             }
 
             echo html_writer::end_tag('tr');
@@ -3356,16 +3765,16 @@ if ($tab === 'earlywarning') {
         echo html_writer::end_tag('div');
 
         // Show row count footer.
-        echo html_writer::tag('p',
+        echo html_writer::tag(
+            'p',
             count($rows) . ' student' . (count($rows) === 1 ? '' : 's'),
             ['class' => 'text-muted', 'style' => 'margin-top:0.5rem; font-size:0.85em;']
         );
     }
 }
 
-// ── Warning Levels tab ───────────────────────────────────────────────────────
+// Warning Levels tab.
 if ($tab === 'warning') {
-
     // Determine school level for this course from the course category.
     $schoollevel = stv_get_school_level_for_course($course);
 
@@ -3391,13 +3800,15 @@ if ($tab === 'warning') {
             'notifymessage'
         );
     } else {
-        echo html_writer::tag('p',
+        echo html_writer::tag(
+            'p',
             get_string('warning_intro_readonly', 'mod_mtssdashboard'),
             ['class' => 'text-muted']
         );
     }
 
-    echo html_writer::tag('p',
+    echo html_writer::tag(
+        'p',
         get_string('warning_intro', 'mod_mtssdashboard')
     );
 
@@ -3411,8 +3822,10 @@ if ($tab === 'warning') {
         $btnlabelkey = $editmode ? 'warning_btn_cancel' : 'warning_btn_edit';
         $btnclass    = $editmode ? 'btn btn-secondary' : 'btn btn-primary';
 
-        echo html_writer::tag('p',
-            html_writer::link($editurl,
+        echo html_writer::tag(
+            'p',
+            html_writer::link(
+                $editurl,
                 get_string($btnlabelkey, 'mod_mtssdashboard'),
                 ['class' => $btnclass]
             ),
@@ -3487,9 +3900,9 @@ if ($tab === 'warning') {
         ]);
 
         // Separate config rows from regular band rows before rendering.
-        $configrows   = []; // metric_key => rows with color='config'
-        $riskrows     = []; // risk_threshold rows
-        $bandmetrics  = []; // normal threshold band rows
+        $configrows   = []; // Metric_key => rows with color='config'.
+        $riskrows     = []; // Risk_threshold rows.
+        $bandmetrics  = []; // Normal threshold band rows.
 
         foreach ($bymetric as $mkey => $bands) {
             if ($mkey === 'risk_threshold') {
@@ -3509,7 +3922,7 @@ if ($tab === 'warning') {
             }
         }
 
-        // ── Regular threshold band cards ──────────────────────────────────────
+        // Regular threshold band cards.
         foreach ($bandmetrics as $mkey => $bands) {
             $eslabelkey = 'metric_' . $mkey . '_' . $schoollevel;
             $manager = get_string_manager();
@@ -3562,12 +3975,18 @@ if ($tab === 'warning') {
                     $editbits = $mininput
                         . html_writer::tag('span', ' to ', ['style' => 'margin:0 0.25em;'])
                         . $maxinput;
-                    echo html_writer::tag('li', $swatch . $colorpart . $editbits,
-                        ['style' => 'padding:0.3rem 0;']);
+                    echo html_writer::tag(
+                        'li',
+                        $swatch . $colorpart . $editbits,
+                        ['style' => 'padding:0.3rem 0;']
+                    );
                 } else {
                     $textpart = s($band->threshold_text ?? '');
-                    echo html_writer::tag('li', $swatch . $colorpart . $textpart,
-                        ['style' => 'padding:0.2rem 0;']);
+                    echo html_writer::tag(
+                        'li',
+                        $swatch . $colorpart . $textpart,
+                        ['style' => 'padding:0.2rem 0;']
+                    );
                 }
             }
 
@@ -3575,7 +3994,7 @@ if ($tab === 'warning') {
             echo html_writer::end_tag('div');
         }
 
-        // ── Risk Level Thresholds card ────────────────────────────────────────
+        // Risk Level Thresholds card.
         if (!empty($riskrows)) {
             echo html_writer::start_tag('div', [
                 'class' => 'card stv-warning-card',
@@ -3585,9 +4004,11 @@ if ($tab === 'warning') {
             echo html_writer::tag('h5', 'Risk Level Thresholds', [
                 'style' => 'margin:0 0 0.75rem 0; font-weight:600; color:#4e73df;',
             ]);
-            echo html_writer::tag('p',
+            echo html_writer::tag(
+                'p',
                 'Number of flagged criteria required to reach each risk level.',
-                ['style' => 'font-size:0.85em; color:#6c757d; margin-bottom:0.5rem;']);
+                ['style' => 'font-size:0.85em; color:#6c757d; margin-bottom:0.5rem;']
+            );
             echo html_writer::start_tag('ul', [
                 'style' => 'list-style:none; padding:0; margin:0;',
             ]);
@@ -3634,15 +4055,23 @@ if ($tab === 'warning') {
                         'name' => 'tmax[' . $band->id . ']',
                         'value' => '',
                     ]);
-                    $suffix = html_writer::tag('span',
-                        ' or more flags', ['style' => 'margin-left:0.35em; color:#6c757d;']);
-                    echo html_writer::tag('li',
+                    $suffix = html_writer::tag(
+                        'span',
+                        ' or more flags',
+                        ['style' => 'margin-left:0.35em; color:#6c757d;']
+                    );
+                    echo html_writer::tag(
+                        'li',
                         $swatch . $colorpart . $mininput . $suffix,
-                        ['style' => 'padding:0.3rem 0;']);
+                        ['style' => 'padding:0.3rem 0;']
+                    );
                 } else {
                     $textpart = s($band->threshold_text ?? '');
-                    echo html_writer::tag('li', $swatch . $colorpart . $textpart,
-                        ['style' => 'padding:0.2rem 0;']);
+                    echo html_writer::tag(
+                        'li',
+                        $swatch . $colorpart . $textpart,
+                        ['style' => 'padding:0.2rem 0;']
+                    );
                 }
             }
 
@@ -3653,17 +4082,19 @@ if ($tab === 'warning') {
                                . "vertical-align:middle;",
                 'aria-hidden' => 'true',
             ]);
-            echo html_writer::tag('li',
+            echo html_writer::tag(
+                'li',
                 $swatch .
                 html_writer::tag('strong', 'No Risk:', ['style' => 'margin-right:0.35em;']) .
                 'Below Low Risk threshold',
-                ['style' => 'padding:0.2rem 0; color:#6c757d; font-style:italic;']);
+                ['style' => 'padding:0.2rem 0; color:#6c757d; font-style:italic;']
+            );
 
             echo html_writer::end_tag('ul');
             echo html_writer::end_tag('div');
         }
 
-        // ── Config cards (e.g. ELA/Math passing score) ────────────────────────
+        // Config cards (e.g. ELA/Math passing score).
         foreach ($configrows as $mkey => $bands) {
             $eslabelkey = 'metric_' . $mkey . '_' . $schoollevel;
             $manager = get_string_manager();
@@ -3710,13 +4141,19 @@ if ($tab === 'warning') {
                         'name' => 'tmax[' . $band->id . ']',
                         'value' => '',
                     ]);
-                    echo html_writer::tag('li', $label . $mininput,
-                        ['style' => 'padding:0.3rem 0;']);
+                    echo html_writer::tag(
+                        'li',
+                        $label . $mininput,
+                        ['style' => 'padding:0.3rem 0;']
+                    );
                 } else {
                     $val = $band->threshold_min !== null
                         ? rtrim(rtrim($band->threshold_min, '0'), '.') : '—';
-                    echo html_writer::tag('li', $label . s($val),
-                        ['style' => 'padding:0.2rem 0;']);
+                    echo html_writer::tag(
+                        'li',
+                        $label . s($val),
+                        ['style' => 'padding:0.2rem 0;']
+                    );
                 }
             }
 
@@ -3724,7 +4161,7 @@ if ($tab === 'warning') {
             echo html_writer::end_tag('div');
         }
 
-        // ── iReady Lessons cards (MS only) ────────────────────────────────────
+        // IReady Lessons cards (MS only).
         // "by Grade": turn off "Days Since Lesson" for grades that take iReady
         // diagnostics but not iReady lessons.
         // "for RIMP Students": same, but only for students who have a RIMP.
@@ -3748,8 +4185,11 @@ if ($tab === 'warning') {
                 echo html_writer::tag('h5', get_string($prefix . 'heading', 'mod_mtssdashboard'), [
                     'style' => 'margin:0 0 0.75rem 0; font-weight:600;',
                 ]);
-                echo html_writer::tag('p', get_string($prefix . 'desc', 'mod_mtssdashboard'),
-                    ['style' => 'font-size:0.85em; color:#6c757d; margin-bottom:0.5rem;']);
+                echo html_writer::tag(
+                    'p',
+                    get_string($prefix . 'desc', 'mod_mtssdashboard'),
+                    ['style' => 'font-size:0.85em; color:#6c757d; margin-bottom:0.5rem;']
+                );
 
                 if ($editmode) {
                     echo html_writer::empty_tag('input', [
@@ -3779,19 +4219,27 @@ if ($tab === 'warning') {
                             if (isset($off[$g])) {
                                 $attrs['checked'] = 'checked';
                             }
-                            $boxes .= html_writer::tag('label',
+                            $boxes .= html_writer::tag(
+                                'label',
                                 html_writer::empty_tag('input', $attrs)
                                 . get_string('lessonsoff_grade', 'mod_mtssdashboard', $g),
-                                ['style' => 'margin-right:0.75em; font-weight:normal;']);
+                                ['style' => 'margin-right:0.75em; font-weight:normal;']
+                            );
                         }
-                        echo html_writer::tag('li', $label . html_writer::empty_tag('br') . $boxes,
-                            ['style' => 'padding:0.3rem 0;']);
+                        echo html_writer::tag(
+                            'li',
+                            $label . html_writer::empty_tag('br') . $boxes,
+                            ['style' => 'padding:0.3rem 0;']
+                        );
                     } else {
                         $text = empty($off)
                             ? get_string($prefix . 'none', 'mod_mtssdashboard')
                             : get_string('lessonsoff_grades', 'mod_mtssdashboard', implode(', ', $off));
-                        echo html_writer::tag('li', $label . s($text),
-                            ['style' => 'padding:0.2rem 0;']);
+                        echo html_writer::tag(
+                            'li',
+                            $label . s($text),
+                            ['style' => 'padding:0.2rem 0;']
+                        );
                     }
                 }
 
@@ -3815,7 +4263,8 @@ if ($tab === 'warning') {
                 'value' => get_string('warning_btn_save', 'mod_mtssdashboard'),
                 'class' => 'btn btn-primary',
             ]);
-            echo html_writer::link($cancelurl,
+            echo html_writer::link(
+                $cancelurl,
                 get_string('warning_btn_cancel', 'mod_mtssdashboard'),
                 ['class' => 'btn btn-secondary', 'style' => 'align-self:flex-start;']
             );
@@ -3827,13 +4276,17 @@ if ($tab === 'warning') {
 }
 
 
-// ── Grade Updates tab ─────────────────────────────────────────────────────
-if ($tab === 'gradeupdates'
+// Grade Updates tab.
+if (
+    $tab === 'gradeupdates'
         && in_array($schoollevel, ['hs', 'ms'])
-        && stv_can_edit_warning_levels($course, $schoollevel)) {
-
-    echo html_writer::tag('h3', get_string('tab_gradeupdates', 'mod_mtssdashboard'),
-        ['style' => 'margin-bottom:0.5rem;']);
+        && stv_can_edit_warning_levels($course, $schoollevel)
+) {
+    echo html_writer::tag(
+        'h3',
+        get_string('tab_gradeupdates', 'mod_mtssdashboard'),
+        ['style' => 'margin-bottom:0.5rem;']
+    );
 
     $gmids = ($groupid > 0) ? array_keys(groups_get_members($groupid, 'u.id')) : [];
     $gudata = stv_get_grade_currency($schoollevel, $gmids);
@@ -3854,11 +4307,13 @@ if ($tab === 'gradeupdates'
         // Header row.
         echo html_writer::start_tag('thead');
         echo html_writer::start_tag('tr', ['style' => 'background:#f1f3f5;']);
-        echo html_writer::tag('th', get_string('gu_col_coursename',  'mod_mtssdashboard'), ['style' => $thlstyle . ' min-width:200px;']);
-        echo html_writer::tag('th', get_string('gu_col_shortname',   'mod_mtssdashboard'), ['style' => $thstyle]);
-        echo html_writer::tag('th', get_string('gu_col_teachers',    'mod_mtssdashboard'), ['style' => $thlstyle . ' min-width:160px;']);
-        echo html_writer::tag('th', get_string('gu_col_lastupdate',  'mod_mtssdashboard'), ['style' => $thstyle]);
-        echo html_writer::tag('th', get_string('gu_col_dayssince',   'mod_mtssdashboard'), ['style' => $thstyle]);
+        echo html_writer::tag('th', get_string('gu_col_coursename', 'mod_mtssdashboard'), ['style' => $thlstyle . ' ' .
+            'min-width:200px;']);
+        echo html_writer::tag('th', get_string('gu_col_shortname', 'mod_mtssdashboard'), ['style' => $thstyle]);
+        echo html_writer::tag('th', get_string('gu_col_teachers', 'mod_mtssdashboard'), ['style' => $thlstyle . ' ' .
+            'min-width:160px;']);
+        echo html_writer::tag('th', get_string('gu_col_lastupdate', 'mod_mtssdashboard'), ['style' => $thstyle]);
+        echo html_writer::tag('th', get_string('gu_col_dayssince', 'mod_mtssdashboard'), ['style' => $thstyle]);
         echo html_writer::end_tag('tr');
         echo html_writer::end_tag('thead');
 
@@ -3874,9 +4329,9 @@ if ($tab === 'gradeupdates'
                 $rowbg = '';
             }
             echo html_writer::start_tag('tr', ['style' => $rowbg]);
-            echo html_writer::tag('td', s($row->fullname),   ['style' => $tdlstyle]);
-            echo html_writer::tag('td', s($row->shortname),  ['style' => $tdstyle]);
-            echo html_writer::tag('td', s($row->teachers),   ['style' => $tdlstyle]);
+            echo html_writer::tag('td', s($row->fullname), ['style' => $tdlstyle]);
+            echo html_writer::tag('td', s($row->shortname), ['style' => $tdstyle]);
+            echo html_writer::tag('td', s($row->teachers), ['style' => $tdlstyle]);
             echo html_writer::tag('td', s($row->lastupdate), ['style' => $tdstyle]);
             echo html_writer::tag('td', (string) $row->days_since, ['style' => $tdstyle]);
             echo html_writer::end_tag('tr');
@@ -3887,65 +4342,84 @@ if ($tab === 'gradeupdates'
     }
 }
 
-// ── MTSS tab ──────────────────────────────────────────────────────────────────
+// MTSS tab.
 if ($tab === 'rimp' && has_capability('mod/mtssdashboard:editrimp', $context)) {
-
     if (!isset($schoollevel)) {
         $schoollevel = stv_get_school_level_for_course($course);
     }
 
-    echo html_writer::tag('h3', get_string('tab_rimp', 'mod_mtssdashboard'),
-        ['style' => 'margin-bottom:0.5rem;']);
-    echo html_writer::tag('p', get_string('rimp_tab_intro', 'mod_mtssdashboard'),
-        ['style' => 'margin-bottom:1rem; color:#555;']);
+    echo html_writer::tag(
+        'h3',
+        get_string('tab_rimp', 'mod_mtssdashboard'),
+        ['style' => 'margin-bottom:0.5rem;']
+    );
+    echo html_writer::tag(
+        'p',
+        get_string('rimp_tab_intro', 'mod_mtssdashboard'),
+        ['style' => 'margin-bottom:1rem; color:#555;']
+    );
 
-    // ── Student selector ──────────────────────────────────────────────────────
-    $selected_sn = optional_param('mtss_sn', 0, PARAM_INT);
+    // Student selector.
+    $selectedsn = optional_param('mtss_sn', 0, PARAM_INT);
 
     // Use $tabstudents (already group-filtered by the shared block above),
     // then apply the top demographic filters so the filter bar works here too.
-    $mtssstudents = stv_filter_students($tabstudents, $f_gender, $f_race, $f_ed,
-                                        $f_swd, $f_el, $f_504, $f_iep, $f_gifted);
+    $mtssstudents = stv_filter_students(
+        $tabstudents,
+        $fgender,
+        $frace,
+        $fed,
+        $fswd,
+        $fel,
+        $f504,
+        $fiep,
+        $fgifted
+    );
     // Leave out CTC (J/NJ) and no-longer-attending (I/R) students.
     $mtssstudents = mtssdashboard_remove_skipped_students($mtssstudents);
-    usort($mtssstudents, function($a, $b) {
+    usort($mtssstudents, function ($a, $b) {
         $lc = strcasecmp($a->lastname, $b->lastname);
         return $lc !== 0 ? $lc : strcasecmp($a->firstname, $b->firstname);
     });
 
     // Build student number list for bulk RIMP fetch.
-    $mtss_snlist = [];
+    $mtsssnlist = [];
     foreach ($mtssstudents as $s) {
         if (!empty($s->idnumber)) {
-            $mtss_snlist[] = (int) $s->idnumber;
+            $mtsssnlist[] = (int) $s->idnumber;
         }
     }
 
     // Bulk fetch existing RIMPs for these students.
-    $mtss_rimpmap = [];
-    if (!empty($mtss_snlist)) {
-        list($insql, $inparams) = $DB->get_in_or_equal($mtss_snlist, SQL_PARAMS_NAMED);
-        $mtss_rimps = $DB->get_records_select('mtssdashboard_rimp',
-            "studentnumber $insql", $inparams,
-            'timemodified DESC');
+    $mtssrimpmap = [];
+    if (!empty($mtsssnlist)) {
+        [$insql, $inparams] = $DB->get_in_or_equal($mtsssnlist, SQL_PARAMS_NAMED);
+        $mtssrimps = $DB->get_records_select(
+            'mtssdashboard_rimp',
+            "studentnumber $insql",
+            $inparams,
+            'timemodified DESC'
+        );
         // Key by studentnumber — keep the most recent per student.
-        foreach ($mtss_rimps as $r) {
-            if (!isset($mtss_rimpmap[$r->studentnumber])) {
-                $mtss_rimpmap[$r->studentnumber] = $r;
+        foreach ($mtssrimps as $r) {
+            if (!isset($mtssrimpmap[$r->studentnumber])) {
+                $mtssrimpmap[$r->studentnumber] = $r;
             }
         }
     }
 
-    // ── Student selector form ─────────────────────────────────────────────────
-    $selectorurl = new moodle_url('/mod/mtssdashboard/view.php',
-        ['id' => $cm->id, 'tab' => 'rimp']);
+    // Student selector form.
+    $selectorurl = new moodle_url(
+        '/mod/mtssdashboard/view.php',
+        ['id' => $cm->id, 'tab' => 'rimp']
+    );
 
     echo html_writer::start_tag('form', [
         'method' => 'get',
         'action' => $selectorurl->out(false),
         'class'  => 'form-inline mb-3',
     ]);
-    echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'id',  'value' => $cm->id]);
+    echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'id', 'value' => $cm->id]);
     echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'tab', 'value' => 'rimp']);
     // Keep the applied demographic filters when View is pressed.
     foreach (['f_gender', 'f_race', 'f_ed', 'f_swd', 'f_el', 'f_504', 'f_iep', 'f_gifted'] as $fname) {
@@ -3954,20 +4428,29 @@ if ($tab === 'rimp' && has_capability('mod/mtssdashboard:editrimp', $context)) {
         }
     }
 
-    $stu_opts = [0 => '— ' . get_string('rimp_select_student', 'mod_mtssdashboard') . ' —'];
+    $stuopts = [0 => '— ' . get_string('rimp_select_student', 'mod_mtssdashboard') . ' —'];
     foreach ($mtssstudents as $s) {
         $sn = !empty($s->idnumber) ? (int) $s->idnumber : 0;
-        $stu_opts[$sn] = s($s->lastname . ', ' . $s->firstname)
+        $stuopts[$sn] = s($s->lastname . ', ' . $s->firstname)
             . ($sn > 0 ? ' (' . $sn . ')' : '');
     }
-    echo html_writer::tag('label',
+    echo html_writer::tag(
+        'label',
         get_string('mtss_select_student', 'mod_mtssdashboard'),
-        ['for' => 'mtss-student-select', 'class' => 'mr-2 font-weight-bold']);
-    echo html_writer::select($stu_opts, 'mtss_sn', $selected_sn, false,
-        ['id' => 'mtss-student-select', 'class' => 'form-control mr-2']);
-    echo html_writer::tag('button',
+        ['for' => 'mtss-student-select', 'class' => 'mr-2 font-weight-bold']
+    );
+    echo html_writer::select(
+        $stuopts,
+        'mtss_sn',
+        $selectedsn,
+        false,
+        ['id' => 'mtss-student-select', 'class' => 'form-control mr-2']
+    );
+    echo html_writer::tag(
+        'button',
         get_string('rimp_btn_go', 'mod_mtssdashboard'),
-        ['type' => 'submit', 'class' => 'btn btn-secondary']);
+        ['type' => 'submit', 'class' => 'btn btn-secondary']
+    );
     // Download RIMPs: every finalized RIMP for the students currently shown.
     $rimpbulkurl = new moodle_url($PAGE->url, ['action' => 'downloadrimps', 'sesskey' => sesskey()]);
     echo html_writer::link(
@@ -3981,84 +4464,112 @@ if ($tab === 'rimp' && has_capability('mod/mtssdashboard:editrimp', $context)) {
     );
     echo html_writer::end_tag('form');
 
-    // ── Selected student action panel ─────────────────────────────────────────
-    if ($selected_sn > 0) {
-        $sel_rimp    = $mtss_rimpmap[$selected_sn] ?? null;
-        $sel_student = null;
+    // Selected student action panel.
+    if ($selectedsn > 0) {
+        $selrimp    = $mtssrimpmap[$selectedsn] ?? null;
+        $selstudent = null;
         foreach ($mtssstudents as $s) {
-            if ((int)$s->idnumber === $selected_sn) {
-                $sel_student = $s;
+            if ((int)$s->idnumber === $selectedsn) {
+                $selstudent = $s;
                 break;
             }
         }
 
-        if ($sel_student) {
-            $editurl = new moodle_url('/mod/mtssdashboard/rimp_edit.php',
-                ['id' => $cm->id, 'sn' => $selected_sn]);
+        if ($selstudent) {
+            $editurl = new moodle_url(
+                '/mod/mtssdashboard/rimp_edit.php',
+                ['id' => $cm->id, 'sn' => $selectedsn]
+            );
 
             echo html_writer::start_tag('div', ['class' => 'card mb-3']);
             echo html_writer::start_tag('div', ['class' => 'card-body']);
 
-            echo html_writer::tag('h5',
-                s($sel_student->lastname . ', ' . $sel_student->firstname) .
-                ' (' . $selected_sn . ')',
-                ['class' => 'card-title']);
+            echo html_writer::tag(
+                'h5',
+                s($selstudent->lastname . ', ' . $selstudent->firstname) .
+                ' (' . $selectedsn . ')',
+                ['class' => 'card-title']
+            );
 
-            if ($sel_rimp) {
-                $status_label = ((int)$sel_rimp->status === 1)
-                    ? html_writer::tag('span',
+            if ($selrimp) {
+                $statuslabel = ((int)$selrimp->status === 1)
+                    ? html_writer::tag(
+                        'span',
                         get_string('rimp_status_finalized', 'mod_mtssdashboard'),
-                        ['class' => 'badge badge-success'])
-                    : html_writer::tag('span',
+                        ['class' => 'badge badge-success']
+                    )
+                    : html_writer::tag(
+                        'span',
                         get_string('rimp_status_draft', 'mod_mtssdashboard'),
-                        ['class' => 'badge badge-warning']);
+                        ['class' => 'badge badge-warning']
+                    );
 
-                $modified = userdate($sel_rimp->timemodified,
-                    get_string('strftimedatetime', 'langconfig'));
+                $modified = userdate(
+                    $selrimp->timemodified,
+                    get_string('strftimedatetime', 'langconfig')
+                );
 
-                echo html_writer::tag('p',
+                echo html_writer::tag(
+                    'p',
                     get_string('rimp_status_label', 'mod_mtssdashboard') . ' ' .
-                    $status_label . ' &nbsp; ' .
+                    $statuslabel . ' &nbsp; ' .
                     get_string('rimp_last_modified', 'mod_mtssdashboard') . ' ' .
                     s($modified),
-                    ['class' => 'card-text']);
+                    ['class' => 'card-text']
+                );
 
-                if (!empty($sel_rimp->rimp_effective_date)) {
-                    echo html_writer::tag('p',
+                if (!empty($selrimp->rimp_effective_date)) {
+                    echo html_writer::tag(
+                        'p',
                         get_string('rimp_effective_date', 'mod_mtssdashboard') . ': ' .
-                        userdate($sel_rimp->rimp_effective_date,
-                            get_string('strftimedate', 'langconfig')),
-                        ['class' => 'card-text']);
+                        userdate(
+                            $selrimp->rimp_effective_date,
+                            get_string('strftimedate', 'langconfig')
+                        ),
+                        ['class' => 'card-text']
+                    );
                 }
 
-                echo html_writer::tag('a',
+                echo html_writer::tag(
+                    'a',
                     get_string('rimp_btn_edit', 'mod_mtssdashboard'),
-                    ['href' => $editurl->out(false), 'class' => 'btn btn-primary mr-2']);
+                    ['href' => $editurl->out(false), 'class' => 'btn btn-primary mr-2']
+                );
 
-                $printurl = new moodle_url('/mod/mtssdashboard/rimp_print.php',
-                    ['id' => $cm->id, 'sn' => $selected_sn]);
-                echo html_writer::tag('a',
+                $printurl = new moodle_url(
+                    '/mod/mtssdashboard/rimp_print.php',
+                    ['id' => $cm->id, 'sn' => $selectedsn]
+                );
+                echo html_writer::tag(
+                    'a',
                     get_string('rimp_btn_print', 'mod_mtssdashboard'),
                     ['href' => $printurl->out(false), 'class' => 'btn btn-outline-secondary',
-                     'target' => '_blank']);
-
+                    'target' => '_blank']
+                );
             } else {
-                echo html_writer::tag('p',
+                echo html_writer::tag(
+                    'p',
                     get_string('rimp_none_exists', 'mod_mtssdashboard'),
-                    ['class' => 'card-text text-muted']);
-                echo html_writer::tag('a',
+                    ['class' => 'card-text text-muted']
+                );
+                echo html_writer::tag(
+                    'a',
                     get_string('rimp_btn_new', 'mod_mtssdashboard'),
-                    ['href' => $editurl->out(false), 'class' => 'btn btn-success']);
+                    ['href' => $editurl->out(false), 'class' => 'btn btn-success']
+                );
             }
 
-            echo html_writer::end_tag('div'); // card-body
-            echo html_writer::end_tag('div'); // card
+            echo html_writer::end_tag('div'); // Card-body.
+            echo html_writer::end_tag('div'); // Card.
         }
     }
 
-    // ── Class RIMP status table ───────────────────────────────────────────────
-    echo html_writer::tag('h4', get_string('rimp_class_table_heading', 'mod_mtssdashboard'),
-        ['class' => 'mt-3 mb-2']);
+    // Class RIMP status table.
+    echo html_writer::tag(
+        'h4',
+        get_string('rimp_class_table_heading', 'mod_mtssdashboard'),
+        ['class' => 'mt-3 mb-2']
+    );
 
     if (empty($mtssstudents)) {
         echo $OUTPUT->notification(get_string('ew_no_students', 'mod_mtssdashboard'), 'notifywarning');
@@ -4074,74 +4585,95 @@ if ($tab === 'rimp' && has_capability('mod/mtssdashboard:editrimp', $context)) {
         ]);
         echo html_writer::start_tag('thead');
         echo html_writer::start_tag('tr');
-        echo html_writer::tag('th', get_string('ew_col_name',       'mod_mtssdashboard'), ['style' => $thstyle]);
-        echo html_writer::tag('th', get_string('ew_col_studentid',  'mod_mtssdashboard'), ['style' => $thstyle]);
+        echo html_writer::tag('th', get_string('ew_col_name', 'mod_mtssdashboard'), ['style' => $thstyle]);
+        echo html_writer::tag('th', get_string('ew_col_studentid', 'mod_mtssdashboard'), ['style' => $thstyle]);
         echo html_writer::tag('th', get_string('rimp_status_label', 'mod_mtssdashboard'), ['style' => $thstyle]);
-        echo html_writer::tag('th', get_string('rimp_last_modified','mod_mtssdashboard'), ['style' => $thstyle]);
-        echo html_writer::tag('th', get_string('last_edited_by',    'mod_mtssdashboard'), ['style' => $thstyle]);
-        echo html_writer::tag('th', get_string('rimp_col_action',   'mod_mtssdashboard'), ['style' => $thstyle]);
+        echo html_writer::tag('th', get_string('rimp_last_modified', 'mod_mtssdashboard'), ['style' => $thstyle]);
+        echo html_writer::tag('th', get_string('last_edited_by', 'mod_mtssdashboard'), ['style' => $thstyle]);
+        echo html_writer::tag('th', get_string('rimp_col_action', 'mod_mtssdashboard'), ['style' => $thstyle]);
         echo html_writer::end_tag('tr');
         echo html_writer::end_tag('thead');
         echo html_writer::start_tag('tbody');
 
         // Pre-fetch usermodified display names for all RIMP records.
-        $rimp_editor_ids = array_filter(array_unique(array_column(
-            array_values((array)$mtss_rimpmap), 'usermodified')));
-        $rimp_editor_map = [];
-        if (!empty($rimp_editor_ids)) {
-            list($einsql, $einparams) = $DB->get_in_or_equal($rimp_editor_ids, SQL_PARAMS_NAMED);
-            $rimp_editors = $DB->get_records_select('user',
-                "id $einsql", $einparams, '', 'id, firstname, lastname');
-            foreach ($rimp_editors as $eu) {
-                $rimp_editor_map[$eu->id] = fullname($eu);
+        $rimpeditorids = array_filter(array_unique(array_column(
+            array_values((array)$mtssrimpmap),
+            'usermodified'
+        )));
+        $rimpeditormap = [];
+        if (!empty($rimpeditorids)) {
+            [$einsql, $einparams] = $DB->get_in_or_equal($rimpeditorids, SQL_PARAMS_NAMED);
+            $rimpeditors = $DB->get_records_select(
+                'user',
+                "id $einsql",
+                $einparams,
+                '',
+                'id, firstname, lastname'
+            );
+            foreach ($rimpeditors as $eu) {
+                $rimpeditormap[$eu->id] = fullname($eu);
             }
         }
 
         foreach ($mtssstudents as $s) {
             $sn       = !empty($s->idnumber) ? (int) $s->idnumber : 0;
-            $row_rimp = $mtss_rimpmap[$sn] ?? null;
+            $rowrimp = $mtssrimpmap[$sn] ?? null;
 
-            if ($row_rimp) {
-                $rstatus = ((int)$row_rimp->status === 1)
-                    ? html_writer::tag('span',
+            if ($rowrimp) {
+                $rstatus = ((int)$rowrimp->status === 1)
+                    ? html_writer::tag(
+                        'span',
                         get_string('rimp_status_finalized', 'mod_mtssdashboard'),
-                        ['class' => 'badge badge-success'])
-                    : html_writer::tag('span',
+                        ['class' => 'badge badge-success']
+                    )
+                    : html_writer::tag(
+                        'span',
                         get_string('rimp_status_draft', 'mod_mtssdashboard'),
-                        ['class' => 'badge badge-warning']);
-                $rmod    = userdate($row_rimp->timemodified,
-                    get_string('strftimedate', 'langconfig'));
-                $reditor = !empty($row_rimp->usermodified)
-                    ? ($rimp_editor_map[$row_rimp->usermodified] ?? '—') : '—';
-                $rowbg   = ((int)$row_rimp->status === 1)
+                        ['class' => 'badge badge-warning']
+                    );
+                $rmod    = userdate(
+                    $rowrimp->timemodified,
+                    get_string('strftimedate', 'langconfig')
+                );
+                $reditor = !empty($rowrimp->usermodified)
+                    ? ($rimpeditormap[$rowrimp->usermodified] ?? '—') : '—';
+                $rowbg   = ((int)$rowrimp->status === 1)
                     ? 'background:#d4edda;'
                     : 'background:#fff3cd;';
             } else {
-                $rstatus = html_writer::tag('span',
+                $rstatus = html_writer::tag(
+                    'span',
                     get_string('rimp_none_short', 'mod_mtssdashboard'),
-                    ['class' => 'badge badge-secondary']);
+                    ['class' => 'badge badge-secondary']
+                );
                 $rmod    = '—';
                 $reditor = '—';
                 $rowbg   = '';
             }
 
-            $editurl = new moodle_url('/mod/mtssdashboard/rimp_edit.php',
-                ['id' => $cm->id, 'sn' => $sn]);
-            $action_link = $row_rimp
-                ? html_writer::tag('a',
+            $editurl = new moodle_url(
+                '/mod/mtssdashboard/rimp_edit.php',
+                ['id' => $cm->id, 'sn' => $sn]
+            );
+            $actionlink = $rowrimp
+                ? html_writer::tag(
+                    'a',
                     get_string('rimp_btn_edit', 'mod_mtssdashboard'),
-                    ['href' => $editurl->out(false), 'class' => 'btn btn-sm btn-primary'])
-                : html_writer::tag('a',
+                    ['href' => $editurl->out(false), 'class' => 'btn btn-sm btn-primary']
+                )
+                : html_writer::tag(
+                    'a',
                     get_string('rimp_btn_new', 'mod_mtssdashboard'),
-                    ['href' => $editurl->out(false), 'class' => 'btn btn-sm btn-success']);
+                    ['href' => $editurl->out(false), 'class' => 'btn btn-sm btn-success']
+                );
 
             echo html_writer::start_tag('tr', ['style' => $rowbg]);
             echo html_writer::tag('td', s($s->lastname . ', ' . $s->firstname), ['style' => $tdstyle]);
-            echo html_writer::tag('td', $sn > 0 ? (string) $sn : '—',           ['style' => $tdstyle]);
-            echo html_writer::tag('td', $rstatus,                                ['style' => $tdstyle]);
-            echo html_writer::tag('td', $rmod,                                   ['style' => $tdstyle]);
-            echo html_writer::tag('td', s($reditor),                             ['style' => $tdstyle]);
-            echo html_writer::tag('td', $action_link,                            ['style' => $tdstyle]);
+            echo html_writer::tag('td', $sn > 0 ? (string) $sn : '—', ['style' => $tdstyle]);
+            echo html_writer::tag('td', $rstatus, ['style' => $tdstyle]);
+            echo html_writer::tag('td', $rmod, ['style' => $tdstyle]);
+            echo html_writer::tag('td', s($reditor), ['style' => $tdstyle]);
+            echo html_writer::tag('td', $actionlink, ['style' => $tdstyle]);
             echo html_writer::end_tag('tr');
         }
 
@@ -4150,32 +4682,49 @@ if ($tab === 'rimp' && has_capability('mod/mtssdashboard:editrimp', $context)) {
         echo html_writer::end_tag('div');
     }
 }
-// ── END MTSS tab ──────────────────────────────────────────────────────────────
+// END MTSS tab.
 
-// ── Plans tab ─────────────────────────────────────────────────────────────────
+// Plans tab.
 if ($tab === 'plans') {
-
-    echo html_writer::tag('h3', get_string('tab_plans', 'mod_mtssdashboard'),
-        ['style' => 'margin-bottom:0.5rem;']);
-    echo html_writer::tag('p', get_string('plans_intro', 'mod_mtssdashboard'),
-        ['style' => 'margin-bottom:1rem; color:#555;']);
+    echo html_writer::tag(
+        'h3',
+        get_string('tab_plans', 'mod_mtssdashboard'),
+        ['style' => 'margin-bottom:0.5rem;']
+    );
+    echo html_writer::tag(
+        'p',
+        get_string('plans_intro', 'mod_mtssdashboard'),
+        ['style' => 'margin-bottom:1rem; color:#555;']
+    );
 
     // Group filter.
-    echo groups_print_activity_menu($cm,
-        new moodle_url('/mod/mtssdashboard/view.php', ['id' => $cm->id, 'tab' => 'plans']), true);
+    echo groups_print_activity_menu(
+        $cm,
+        new moodle_url('/mod/mtssdashboard/view.php', ['id' => $cm->id, 'tab' => 'plans']),
+        true
+    );
 
     // Apply group and demographic filters using the same $allstudents list.
-    $planstudents = stv_filter_students($allstudents,
-        $f_gender, $f_race, $f_ed, $f_swd, $f_el, $f_504, $f_iep, $f_gifted);
+    $planstudents = stv_filter_students(
+        $allstudents,
+        $fgender,
+        $frace,
+        $fed,
+        $fswd,
+        $fel,
+        $f504,
+        $fiep,
+        $fgifted
+    );
 
     if ($groupid > 0) {
         $gmids = array_keys(groups_get_members($groupid, 'u.id'));
-        $planstudents = array_filter($planstudents, function($s) use ($gmids) {
+        $planstudents = array_filter($planstudents, function ($s) use ($gmids) {
             return in_array($s->userid, $gmids);
         });
     }
 
-    usort($planstudents, function($a, $b) {
+    usort($planstudents, function ($a, $b) {
         $lc = strcasecmp($a->lastname, $b->lastname);
         return $lc !== 0 ? $lc : strcasecmp($a->firstname, $b->firstname);
     });
@@ -4205,15 +4754,20 @@ if ($tab === 'plans') {
         ]);
         echo html_writer::start_tag('thead');
         echo html_writer::start_tag('tr');
-        echo html_writer::tag('th', get_string('ew_col_name',      'mod_mtssdashboard'), ['style' => $thstyle]);
-        echo html_writer::tag('th', get_string('ew_col_grade',     'mod_mtssdashboard'), ['style' => $thstyle]);
+        echo html_writer::tag('th', get_string('ew_col_name', 'mod_mtssdashboard'), ['style' => $thstyle]);
+        echo html_writer::tag('th', get_string('ew_col_grade', 'mod_mtssdashboard'), ['style' => $thstyle]);
         echo html_writer::tag('th', get_string('ew_col_studentid', 'mod_mtssdashboard'), ['style' => $thstyle]);
         echo html_writer::tag('th', get_string('plans_col_status', 'mod_mtssdashboard'), ['style' => $thstyle]);
-        echo html_writer::tag('th',
-            html_writer::tag('a', get_string('plans_col_plan', 'mod_mtssdashboard') . ' &#x25B4;&#x25BE;',
+        echo html_writer::tag(
+            'th',
+            html_writer::tag(
+                'a',
+                get_string('plans_col_plan', 'mod_mtssdashboard') . ' &#x25B4;&#x25BE;',
                 ['href' => '#', 'id' => 'plans-sort-btn',
-                 'style' => 'text-decoration:none; color:inherit; white-space:nowrap;']),
-            ['style' => $thstyle]);
+                'style' => 'text-decoration:none; color:inherit; white-space:nowrap;']
+            ),
+            ['style' => $thstyle]
+        );
         echo html_writer::end_tag('tr');
         echo html_writer::end_tag('thead');
         echo html_writer::start_tag('tbody');
@@ -4221,59 +4775,91 @@ if ($tab === 'plans') {
         foreach ($planstudents as $s) {
             $sn = !empty($s->idnumber) ? (int) $s->idnumber : 0;
 
-            // ── Status badges ─────────────────────────────────────────────────
+            // Status badges.
             $badges = '';
             if (!empty($s->iep) && strtoupper($s->iep) === 'Y') {
-                $badges .= html_writer::tag('span', 'IEP',
+                $badges .= html_writer::tag(
+                    'span',
+                    'IEP',
                     ['class' => 'badge badge-danger mr-1',
-                     'style' => 'font-size:0.85em;']);
+                    'style' => 'font-size:0.85em;']
+                );
             }
             if (!empty($s->status504) && strtoupper($s->status504) === 'Y') {
-                $badges .= html_writer::tag('span', '504',
+                $badges .= html_writer::tag(
+                    'span',
+                    '504',
                     ['class' => 'badge badge-warning mr-1',
-                     'style' => 'font-size:0.85em;']);
+                    'style' => 'font-size:0.85em;']
+                );
             }
             if (!empty($s->gifted) && strtoupper($s->gifted) === 'Y') {
-                $badges .= html_writer::tag('span', 'Gifted',
+                $badges .= html_writer::tag(
+                    'span',
+                    'Gifted',
                     ['class' => 'badge badge-info mr-1',
-                     'style' => 'font-size:0.85em;']);
+                    'style' => 'font-size:0.85em;']
+                );
             }
             if (empty($badges)) {
-                $badges = html_writer::tag('span', '—',
-                    ['style' => 'color:#999;']);
+                $badges = html_writer::tag(
+                    'span',
+                    '—',
+                    ['style' => 'color:#999;']
+                );
             }
 
-            // ── Plan link ─────────────────────────────────────────────────────
-            $plan_timestamp = 0;
+            // Plan link.
+            $plantimestamp = 0;
             $plancellbg     = '';
             if ($sn > 0 && isset($planfiles[$sn])) {
-                $plan_timestamp = $planfiles[$sn];
+                $plantimestamp = $planfiles[$sn];
                 $planurl  = new moodle_url($planbaseurl, ['ssid' => $sn]);
-                $filedate = userdate($plan_timestamp, get_string('strftimedate', 'langconfig'));
-                $planlink = html_writer::tag('a', $filedate,
+                $filedate = userdate($plantimestamp, get_string('strftimedate', 'langconfig'));
+                $planlink = html_writer::tag(
+                    'a',
+                    $filedate,
                     ['href'   => $planurl->out(false),
                      'target' => '_blank',
                      'style'  => 'font-weight:600; color:#0f6cbf;',
-                     'title'  => get_string('plan_view', 'mod_mtssdashboard')]);
-                if ($plan_timestamp < (time() - 365 * 24 * 60 * 60)) {
+                    'title'  => get_string(
+                        'plan_view',
+                        'mod_mtssdashboard'
+                    )]
+                );
+                if ($plantimestamp < (time() - 365 * 24 * 60 * 60)) {
                     $plancellbg = ' background:#ffe0b2;';
                 }
             } else {
-                $planlink = html_writer::tag('span',
+                $planlink = html_writer::tag(
+                    'span',
                     get_string('plans_no_plan', 'mod_mtssdashboard'),
-                    ['style' => 'color:#999;']);
+                    ['style' => 'color:#999;']
+                );
             }
 
-            echo html_writer::start_tag('tr', ['data-plandate' => $plan_timestamp]);
-            echo html_writer::tag('td',
-                s($s->lastname . ', ' . $s->firstname), ['style' => $tdstyle]);
-            echo html_writer::tag('td',
-                s($s->gradelevel ?? ''), ['style' => $tdstyle . ' text-align:center;']);
-            echo html_writer::tag('td',
-                $sn > 0 ? (string)$sn : '—', ['style' => $tdstyle . ' text-align:center;']);
+            echo html_writer::start_tag('tr', ['data-plandate' => $plantimestamp]);
+            echo html_writer::tag(
+                'td',
+                s($s->lastname . ', ' . $s->firstname),
+                ['style' => $tdstyle]
+            );
+            echo html_writer::tag(
+                'td',
+                s($s->gradelevel ?? ''),
+                ['style' => $tdstyle . ' text-align:center;']
+            );
+            echo html_writer::tag(
+                'td',
+                $sn > 0 ? (string)$sn : '—',
+                ['style' => $tdstyle . ' text-align:center;']
+            );
             echo html_writer::tag('td', $badges, ['style' => $tdstyle]);
-            echo html_writer::tag('td', $planlink,
-                ['style' => $tdstyle . $plancellbg]);
+            echo html_writer::tag(
+                'td',
+                $planlink,
+                ['style' => $tdstyle . $plancellbg]
+            );
             echo html_writer::end_tag('tr');
         }
 
@@ -4302,66 +4888,85 @@ if ($tab === 'plans') {
 })();
 ");
 }
-// ── END Plans tab ─────────────────────────────────────────────────────────────
+// END Plans tab.
 
-// ── WEP tab ───────────────────────────────────────────────────────────────────
+// WEP tab.
 if ($tab === 'wep' && has_capability('mod/mtssdashboard:editwep', $context)) {
-
     if (!isset($schoollevel)) {
         $schoollevel = stv_get_school_level_for_course($course);
     }
 
-    echo html_writer::tag('h3', get_string('tab_wep', 'mod_mtssdashboard'),
-        ['style' => 'margin-bottom:0.5rem;']);
-    echo html_writer::tag('p', get_string('wep_tab_intro', 'mod_mtssdashboard'),
-        ['style' => 'margin-bottom:1rem; color:#555;']);
+    echo html_writer::tag(
+        'h3',
+        get_string('tab_wep', 'mod_mtssdashboard'),
+        ['style' => 'margin-bottom:0.5rem;']
+    );
+    echo html_writer::tag(
+        'p',
+        get_string('wep_tab_intro', 'mod_mtssdashboard'),
+        ['style' => 'margin-bottom:1rem; color:#555;']
+    );
 
-    // ── Student selector ──────────────────────────────────────────────────────
-    $selected_wep_sn = optional_param('wep_sn', 0, PARAM_INT);
+    // Student selector.
+    $selectedwepsn = optional_param('wep_sn', 0, PARAM_INT);
 
     // Use $tabstudents (already group-filtered by the shared block above),
     // then apply the top demographic filters so the filter bar works here too.
-    $wepstudents = stv_filter_students($tabstudents, $f_gender, $f_race, $f_ed,
-                                       $f_swd, $f_el, $f_504, $f_iep, $f_gifted);
+    $wepstudents = stv_filter_students(
+        $tabstudents,
+        $fgender,
+        $frace,
+        $fed,
+        $fswd,
+        $fel,
+        $f504,
+        $fiep,
+        $fgifted
+    );
     // Leave out CTC (J/NJ) and no-longer-attending (I/R) students.
     $wepstudents = mtssdashboard_remove_skipped_students($wepstudents);
-    usort($wepstudents, function($a, $b) {
+    usort($wepstudents, function ($a, $b) {
         $lc = strcasecmp($a->lastname, $b->lastname);
         return $lc !== 0 ? $lc : strcasecmp($a->firstname, $b->firstname);
     });
 
     // Build student number list for bulk WEP fetch.
-    $wep_snlist = [];
+    $wepsnlist = [];
     foreach ($wepstudents as $s) {
         if (!empty($s->idnumber)) {
-            $wep_snlist[] = (int) $s->idnumber;
+            $wepsnlist[] = (int) $s->idnumber;
         }
     }
 
     // Bulk fetch most-recent WEP per student.
-    $wep_map = [];
-    if (!empty($wep_snlist)) {
-        list($insql, $inparams) = $DB->get_in_or_equal($wep_snlist, SQL_PARAMS_NAMED);
-        $wep_records = $DB->get_records_select('mtssdashboard_wep',
-            "studentnumber $insql", $inparams,
-            'timemodified DESC');
-        foreach ($wep_records as $w) {
-            if (!isset($wep_map[$w->studentnumber])) {
-                $wep_map[$w->studentnumber] = $w;
+    $wepmap = [];
+    if (!empty($wepsnlist)) {
+        [$insql, $inparams] = $DB->get_in_or_equal($wepsnlist, SQL_PARAMS_NAMED);
+        $weprecords = $DB->get_records_select(
+            'mtssdashboard_wep',
+            "studentnumber $insql",
+            $inparams,
+            'timemodified DESC'
+        );
+        foreach ($weprecords as $w) {
+            if (!isset($wepmap[$w->studentnumber])) {
+                $wepmap[$w->studentnumber] = $w;
             }
         }
     }
 
-    // ── Student selector form ─────────────────────────────────────────────────
-    $wep_selectorurl = new moodle_url('/mod/mtssdashboard/view.php',
-        ['id' => $cm->id, 'tab' => 'wep']);
+    // Student selector form.
+    $wepselectorurl = new moodle_url(
+        '/mod/mtssdashboard/view.php',
+        ['id' => $cm->id, 'tab' => 'wep']
+    );
 
     echo html_writer::start_tag('form', [
         'method' => 'get',
-        'action' => $wep_selectorurl->out(false),
+        'action' => $wepselectorurl->out(false),
         'class'  => 'form-inline mb-3',
     ]);
-    echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'id',  'value' => $cm->id]);
+    echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'id', 'value' => $cm->id]);
     echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'tab', 'value' => 'wep']);
     // Keep the applied demographic filters when View is pressed.
     foreach (['f_gender', 'f_race', 'f_ed', 'f_swd', 'f_el', 'f_504', 'f_iep', 'f_gifted'] as $fname) {
@@ -4370,20 +4975,29 @@ if ($tab === 'wep' && has_capability('mod/mtssdashboard:editwep', $context)) {
         }
     }
 
-    $wep_stu_opts = [0 => '— ' . get_string('wep_select_student', 'mod_mtssdashboard') . ' —'];
+    $wepstuopts = [0 => '— ' . get_string('wep_select_student', 'mod_mtssdashboard') . ' —'];
     foreach ($wepstudents as $s) {
         $sn = !empty($s->idnumber) ? (int) $s->idnumber : 0;
-        $wep_stu_opts[$sn] = s($s->lastname . ', ' . $s->firstname)
+        $wepstuopts[$sn] = s($s->lastname . ', ' . $s->firstname)
             . ($sn > 0 ? ' (' . $sn . ')' : '');
     }
-    echo html_writer::tag('label',
+    echo html_writer::tag(
+        'label',
         get_string('wep_select_student', 'mod_mtssdashboard'),
-        ['for' => 'wep-student-select', 'class' => 'mr-2 font-weight-bold']);
-    echo html_writer::select($wep_stu_opts, 'wep_sn', $selected_wep_sn, false,
-        ['id' => 'wep-student-select', 'class' => 'form-control mr-2']);
-    echo html_writer::tag('button',
+        ['for' => 'wep-student-select', 'class' => 'mr-2 font-weight-bold']
+    );
+    echo html_writer::select(
+        $wepstuopts,
+        'wep_sn',
+        $selectedwepsn,
+        false,
+        ['id' => 'wep-student-select', 'class' => 'form-control mr-2']
+    );
+    echo html_writer::tag(
+        'button',
         get_string('wep_btn_go', 'mod_mtssdashboard'),
-        ['type' => 'submit', 'class' => 'btn btn-secondary']);
+        ['type' => 'submit', 'class' => 'btn btn-secondary']
+    );
     // Download WEPs: every finalized WEP for the students currently shown.
     $wepbulkurl = new moodle_url($PAGE->url, ['action' => 'downloadweps', 'sesskey' => sesskey()]);
     echo html_writer::link(
@@ -4397,76 +5011,100 @@ if ($tab === 'wep' && has_capability('mod/mtssdashboard:editwep', $context)) {
     );
     echo html_writer::end_tag('form');
 
-    // ── Selected student action panel ─────────────────────────────────────────
-    if ($selected_wep_sn > 0) {
-        $sel_wep     = $wep_map[$selected_wep_sn] ?? null;
-        $sel_student = null;
+    // Selected student action panel.
+    if ($selectedwepsn > 0) {
+        $selwep     = $wepmap[$selectedwepsn] ?? null;
+        $selstudent = null;
         foreach ($wepstudents as $s) {
-            if ((int)$s->idnumber === $selected_wep_sn) {
-                $sel_student = $s;
+            if ((int)$s->idnumber === $selectedwepsn) {
+                $selstudent = $s;
                 break;
             }
         }
 
-        if ($sel_student) {
-            $wep_editurl = new moodle_url('/mod/mtssdashboard/wep_edit.php',
-                ['id' => $cm->id, 'sn' => $selected_wep_sn]);
+        if ($selstudent) {
+            $wepediturl = new moodle_url(
+                '/mod/mtssdashboard/wep_edit.php',
+                ['id' => $cm->id, 'sn' => $selectedwepsn]
+            );
 
             echo html_writer::start_tag('div', ['class' => 'card mb-3']);
             echo html_writer::start_tag('div', ['class' => 'card-body']);
 
-            echo html_writer::tag('h5',
-                s($sel_student->lastname . ', ' . $sel_student->firstname) .
-                ' (' . $selected_wep_sn . ')',
-                ['class' => 'card-title']);
+            echo html_writer::tag(
+                'h5',
+                s($selstudent->lastname . ', ' . $selstudent->firstname) .
+                ' (' . $selectedwepsn . ')',
+                ['class' => 'card-title']
+            );
 
-            if ($sel_wep) {
-                $wep_status_label = ((int)$sel_wep->status === 1)
-                    ? html_writer::tag('span',
+            if ($selwep) {
+                $wepstatuslabel = ((int)$selwep->status === 1)
+                    ? html_writer::tag(
+                        'span',
                         get_string('wep_status_finalized', 'mod_mtssdashboard'),
-                        ['class' => 'badge badge-success'])
-                    : html_writer::tag('span',
+                        ['class' => 'badge badge-success']
+                    )
+                    : html_writer::tag(
+                        'span',
                         get_string('wep_status_draft', 'mod_mtssdashboard'),
-                        ['class' => 'badge badge-warning']);
+                        ['class' => 'badge badge-warning']
+                    );
 
-                $wep_modified = userdate($sel_wep->timemodified,
-                    get_string('strftimedatetime', 'langconfig'));
+                $wepmodified = userdate(
+                    $selwep->timemodified,
+                    get_string('strftimedatetime', 'langconfig')
+                );
 
-                echo html_writer::tag('p',
+                echo html_writer::tag(
+                    'p',
                     get_string('wep_status_label', 'mod_mtssdashboard') . ' ' .
-                    $wep_status_label . ' &nbsp; ' .
+                    $wepstatuslabel . ' &nbsp; ' .
                     get_string('wep_last_modified', 'mod_mtssdashboard') . ' ' .
-                    s($wep_modified),
-                    ['class' => 'card-text']);
+                    s($wepmodified),
+                    ['class' => 'card-text']
+                );
 
-                echo html_writer::tag('a',
+                echo html_writer::tag(
+                    'a',
                     get_string('wep_btn_edit', 'mod_mtssdashboard'),
-                    ['href' => $wep_editurl->out(false), 'class' => 'btn btn-primary mr-2']);
+                    ['href' => $wepediturl->out(false), 'class' => 'btn btn-primary mr-2']
+                );
 
-                $wep_printurl = new moodle_url('/mod/mtssdashboard/wep_print.php',
-                    ['id' => $cm->id, 'sn' => $selected_wep_sn]);
-                echo html_writer::tag('a',
+                $wepprinturl = new moodle_url(
+                    '/mod/mtssdashboard/wep_print.php',
+                    ['id' => $cm->id, 'sn' => $selectedwepsn]
+                );
+                echo html_writer::tag(
+                    'a',
                     get_string('wep_btn_print', 'mod_mtssdashboard'),
-                    ['href' => $wep_printurl->out(false), 'class' => 'btn btn-outline-secondary',
-                     'target' => '_blank']);
-
+                    ['href' => $wepprinturl->out(false), 'class' => 'btn btn-outline-secondary',
+                    'target' => '_blank']
+                );
             } else {
-                echo html_writer::tag('p',
+                echo html_writer::tag(
+                    'p',
                     get_string('wep_none_exists', 'mod_mtssdashboard'),
-                    ['class' => 'card-text text-muted']);
-                echo html_writer::tag('a',
+                    ['class' => 'card-text text-muted']
+                );
+                echo html_writer::tag(
+                    'a',
                     get_string('wep_btn_new', 'mod_mtssdashboard'),
-                    ['href' => $wep_editurl->out(false), 'class' => 'btn btn-success']);
+                    ['href' => $wepediturl->out(false), 'class' => 'btn btn-success']
+                );
             }
 
-            echo html_writer::end_tag('div'); // card-body
-            echo html_writer::end_tag('div'); // card
+            echo html_writer::end_tag('div'); // Card-body.
+            echo html_writer::end_tag('div'); // Card.
         }
     }
 
-    // ── Class WEP status table ────────────────────────────────────────────────
-    echo html_writer::tag('h4', get_string('wep_class_table_heading', 'mod_mtssdashboard'),
-        ['class' => 'mt-3 mb-2']);
+    // Class WEP status table.
+    echo html_writer::tag(
+        'h4',
+        get_string('wep_class_table_heading', 'mod_mtssdashboard'),
+        ['class' => 'mt-3 mb-2']
+    );
 
     if (empty($wepstudents)) {
         echo $OUTPUT->notification(get_string('ew_no_students', 'mod_mtssdashboard'), 'notifywarning');
@@ -4482,74 +5120,95 @@ if ($tab === 'wep' && has_capability('mod/mtssdashboard:editwep', $context)) {
         ]);
         echo html_writer::start_tag('thead');
         echo html_writer::start_tag('tr');
-        echo html_writer::tag('th', get_string('ew_col_name',       'mod_mtssdashboard'), ['style' => $thstyle]);
-        echo html_writer::tag('th', get_string('ew_col_studentid',  'mod_mtssdashboard'), ['style' => $thstyle]);
-        echo html_writer::tag('th', get_string('wep_status_label',  'mod_mtssdashboard'), ['style' => $thstyle]);
+        echo html_writer::tag('th', get_string('ew_col_name', 'mod_mtssdashboard'), ['style' => $thstyle]);
+        echo html_writer::tag('th', get_string('ew_col_studentid', 'mod_mtssdashboard'), ['style' => $thstyle]);
+        echo html_writer::tag('th', get_string('wep_status_label', 'mod_mtssdashboard'), ['style' => $thstyle]);
         echo html_writer::tag('th', get_string('wep_last_modified', 'mod_mtssdashboard'), ['style' => $thstyle]);
-        echo html_writer::tag('th', get_string('last_edited_by',    'mod_mtssdashboard'), ['style' => $thstyle]);
-        echo html_writer::tag('th', get_string('wep_col_action',    'mod_mtssdashboard'), ['style' => $thstyle]);
+        echo html_writer::tag('th', get_string('last_edited_by', 'mod_mtssdashboard'), ['style' => $thstyle]);
+        echo html_writer::tag('th', get_string('wep_col_action', 'mod_mtssdashboard'), ['style' => $thstyle]);
         echo html_writer::end_tag('tr');
         echo html_writer::end_tag('thead');
         echo html_writer::start_tag('tbody');
 
         // Pre-fetch usermodified display names for all WEP records.
-        $wep_editor_ids = array_filter(array_unique(array_column(
-            array_values((array)$wep_map), 'usermodified')));
-        $wep_editor_map = [];
-        if (!empty($wep_editor_ids)) {
-            list($weinsql, $weinparams) = $DB->get_in_or_equal($wep_editor_ids, SQL_PARAMS_NAMED);
-            $wep_editors = $DB->get_records_select('user',
-                "id $weinsql", $weinparams, '', 'id, firstname, lastname');
-            foreach ($wep_editors as $eu) {
-                $wep_editor_map[$eu->id] = fullname($eu);
+        $wepeditorids = array_filter(array_unique(array_column(
+            array_values((array)$wepmap),
+            'usermodified'
+        )));
+        $wepeditormap = [];
+        if (!empty($wepeditorids)) {
+            [$weinsql, $weinparams] = $DB->get_in_or_equal($wepeditorids, SQL_PARAMS_NAMED);
+            $wepeditors = $DB->get_records_select(
+                'user',
+                "id $weinsql",
+                $weinparams,
+                '',
+                'id, firstname, lastname'
+            );
+            foreach ($wepeditors as $eu) {
+                $wepeditormap[$eu->id] = fullname($eu);
             }
         }
 
         foreach ($wepstudents as $s) {
             $sn      = !empty($s->idnumber) ? (int) $s->idnumber : 0;
-            $row_wep = $wep_map[$sn] ?? null;
+            $rowwep = $wepmap[$sn] ?? null;
 
-            if ($row_wep) {
-                $wstatus = ((int)$row_wep->status === 1)
-                    ? html_writer::tag('span',
+            if ($rowwep) {
+                $wstatus = ((int)$rowwep->status === 1)
+                    ? html_writer::tag(
+                        'span',
                         get_string('wep_status_finalized', 'mod_mtssdashboard'),
-                        ['class' => 'badge badge-success'])
-                    : html_writer::tag('span',
+                        ['class' => 'badge badge-success']
+                    )
+                    : html_writer::tag(
+                        'span',
                         get_string('wep_status_draft', 'mod_mtssdashboard'),
-                        ['class' => 'badge badge-warning']);
-                $wmod    = userdate($row_wep->timemodified,
-                    get_string('strftimedate', 'langconfig'));
-                $weditor = !empty($row_wep->usermodified)
-                    ? ($wep_editor_map[$row_wep->usermodified] ?? '—') : '—';
-                $rowbg   = ((int)$row_wep->status === 1)
+                        ['class' => 'badge badge-warning']
+                    );
+                $wmod    = userdate(
+                    $rowwep->timemodified,
+                    get_string('strftimedate', 'langconfig')
+                );
+                $weditor = !empty($rowwep->usermodified)
+                    ? ($wepeditormap[$rowwep->usermodified] ?? '—') : '—';
+                $rowbg   = ((int)$rowwep->status === 1)
                     ? 'background:#d4edda;'
                     : 'background:#fff3cd;';
             } else {
-                $wstatus = html_writer::tag('span',
+                $wstatus = html_writer::tag(
+                    'span',
                     get_string('wep_none_short', 'mod_mtssdashboard'),
-                    ['class' => 'badge badge-secondary']);
+                    ['class' => 'badge badge-secondary']
+                );
                 $wmod    = '—';
                 $weditor = '—';
                 $rowbg   = '';
             }
 
-            $wep_editurl = new moodle_url('/mod/mtssdashboard/wep_edit.php',
-                ['id' => $cm->id, 'sn' => $sn]);
-            $wep_action_link = $row_wep
-                ? html_writer::tag('a',
+            $wepediturl = new moodle_url(
+                '/mod/mtssdashboard/wep_edit.php',
+                ['id' => $cm->id, 'sn' => $sn]
+            );
+            $wepactionlink = $rowwep
+                ? html_writer::tag(
+                    'a',
                     get_string('wep_btn_edit', 'mod_mtssdashboard'),
-                    ['href' => $wep_editurl->out(false), 'class' => 'btn btn-sm btn-primary'])
-                : html_writer::tag('a',
+                    ['href' => $wepediturl->out(false), 'class' => 'btn btn-sm btn-primary']
+                )
+                : html_writer::tag(
+                    'a',
                     get_string('wep_btn_new', 'mod_mtssdashboard'),
-                    ['href' => $wep_editurl->out(false), 'class' => 'btn btn-sm btn-success']);
+                    ['href' => $wepediturl->out(false), 'class' => 'btn btn-sm btn-success']
+                );
 
             echo html_writer::start_tag('tr', ['style' => $rowbg]);
             echo html_writer::tag('td', s($s->lastname . ', ' . $s->firstname), ['style' => $tdstyle]);
-            echo html_writer::tag('td', $sn > 0 ? (string) $sn : '—',           ['style' => $tdstyle]);
-            echo html_writer::tag('td', $wstatus,                                ['style' => $tdstyle]);
-            echo html_writer::tag('td', $wmod,                                   ['style' => $tdstyle]);
-            echo html_writer::tag('td', s($weditor),                             ['style' => $tdstyle]);
-            echo html_writer::tag('td', $wep_action_link,                        ['style' => $tdstyle]);
+            echo html_writer::tag('td', $sn > 0 ? (string) $sn : '—', ['style' => $tdstyle]);
+            echo html_writer::tag('td', $wstatus, ['style' => $tdstyle]);
+            echo html_writer::tag('td', $wmod, ['style' => $tdstyle]);
+            echo html_writer::tag('td', s($weditor), ['style' => $tdstyle]);
+            echo html_writer::tag('td', $wepactionlink, ['style' => $tdstyle]);
             echo html_writer::end_tag('tr');
         }
 
@@ -4558,6 +5217,6 @@ if ($tab === 'wep' && has_capability('mod/mtssdashboard:editwep', $context)) {
         echo html_writer::end_tag('div');
     }
 }
-// ── END WEP tab ───────────────────────────────────────────────────────────────
+// END WEP tab.
 
 echo $OUTPUT->footer();

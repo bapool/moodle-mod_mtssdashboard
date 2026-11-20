@@ -30,7 +30,6 @@ require_once($CFG->dirroot . '/mod/mtssdashboard/backup/moodle2/backup_mtssdashb
  * Provides the steps that make up the mtssdashboard backup task.
  */
 class backup_mtssdashboard_activity_task extends backup_activity_task {
-
     /**
      * Define any settings specific to this module (none required).
      */

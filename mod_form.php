@@ -31,7 +31,6 @@ require_once($CFG->dirroot . '/mod/mtssdashboard/lib.php');
  * Module instance settings form.
  */
 class mod_mtssdashboard_mod_form extends moodleform_mod {
-
     /**
      * Define the form elements.
      */
@@ -40,7 +39,7 @@ class mod_mtssdashboard_mod_form extends moodleform_mod {
 
         $mform = $this->_form;
 
-        // ── General section ──────────────────────────────────────────────────
+        // General section.
         $mform->addElement('header', 'general', get_string('general', 'form'));
 
         // Name field (required).
@@ -59,9 +58,12 @@ class mod_mtssdashboard_mod_form extends moodleform_mod {
         // Standard intro editor.
         $this->standard_intro_elements();
 
-        // ── Default display settings ──────────────────────────────────────────
-        $mform->addElement('header', 'defaultdisplay',
-            get_string('defaultdisplay', 'mod_mtssdashboard'));
+        // Default display settings.
+        $mform->addElement(
+            'header',
+            'defaultdisplay',
+            get_string('defaultdisplay', 'mod_mtssdashboard')
+        );
         $mform->setExpanded('defaultdisplay');
 
         // Default year dropdown — populated from the database.
@@ -90,10 +92,10 @@ class mod_mtssdashboard_mod_form extends moodleform_mod {
         $mform->setDefault('defaultsubject', '');
         $mform->addHelpButton('defaultsubject', 'defaultsubject', 'mod_mtssdashboard');
 
-        // ── Standard Moodle form elements (grading, etc.) ─────────────────────
+        // Standard Moodle form elements (grading, etc.).
         $this->standard_coursemodule_elements();
 
-        // ── Action buttons ────────────────────────────────────────────────────
+        // Action buttons.
         $this->add_action_buttons();
     }
 

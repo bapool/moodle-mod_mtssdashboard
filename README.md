@@ -1,10 +1,32 @@
 # mod_mtssdashboard — My Student Data
-**Version:** 2026112000 (0.4.7)
+**Version:** 2026112001 (0.4.8)
 **Moodle:** 4.5.x
 **Author:** Brian Pool, National Trail Local Schools
 **License:** GNU GPL v3 or later
 
 ---
+
+## 0.4.8 changes
+
+- **Moodle coding-standard cleanup (no behaviour change)** — the code now
+  passes the Moodle Plugin CI checks on GitHub (Moodle Code Checker with
+  `--max-warnings 0` and the Moodle PHPDoc Checker) with zero errors and
+  zero warnings.
+  - **Why:** so the plugin can be kept on GitHub with a green CI run and so
+    future changes are easy to check against Moodle's standards.
+  - Variables renamed to Moodle style (no underscores, all lower-case,
+    e.g. `$iready_ela` → `$ireadyela`). Function names, database fields,
+    language strings and config names are unchanged.
+  - The RIMP and WEP print layouts in `lib.php`
+    (`mtssdashboard_render_rimp_report()` / `mtssdashboard_render_wep_report()`)
+    now build their HTML with `echo` statements instead of switching in and
+    out of PHP (`?>` … `<?php`). The printed output is byte-for-byte the
+    same; block_parentgrades, which shares these renderers, is unaffected.
+  - Comments, PHPDoc blocks, indentation and line lengths brought in line
+    with the Moodle coding style.
+  - Removed dead files: the four `backup/moodle2/*statetestview*` files
+    (left over from the old plugin name; never loaded) and
+    `mtssdashboard_additions.php` (old language-string notes; never loaded).
 
 ## 0.4.7 changes
 

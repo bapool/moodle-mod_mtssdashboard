@@ -157,7 +157,7 @@ $string['settings_ms_category_desc']        = 'Moodle course category ID for Mid
 $string['settings_es_category']             = 'Elementary category ID';
 $string['settings_es_category_desc']        = 'Moodle course category ID for Elementary courses (default: 28).';
 $string['settings_graderanges_heading']     = 'Grade Level Ranges';
-$string['settings_graderanges_heading_desc']= 'Set the grade ranges for each school level. Used to determine which state test results are shown for each course type.';
+$string['settings_graderanges_heading_desc'] = 'Set the grade ranges for each school level. Used to determine which state test results are shown for each course type.';
 $string['settings_hs_grade_min']            = 'High School minimum grade';
 $string['settings_hs_grade_min_desc']       = 'Lowest grade considered High School (default: 9).';
 $string['settings_hs_grade_max']            = 'High School maximum grade';
@@ -252,7 +252,7 @@ $string['metric_iready_math_percentile'] = 'iReady Math Percentile';
 $string['metric_iready_ela_days']        = 'Days Since ELA Lesson';
 $string['metric_iready_math_days']       = 'Days Since Math Lesson';
 
-// iReady Lessons by Grade toggle (Warning Levels tab, MS).
+// IReady Lessons by Grade toggle (Warning Levels tab, MS).
 $string['lessonsoff_heading']       = 'iReady Lessons by Grade';
 $string['lessonsoff_desc']          = 'Check a grade if those students take iReady diagnostics but not iReady lessons in that subject. Their "Days Since Lesson" column is left blank and does not count toward Overall Risk. Percentiles are not affected.';
 $string['lessonsoff_subject_ela']   = 'Reading (ELA) lessons off';
@@ -312,10 +312,9 @@ $string['ew_pending_data']           = 'Coming soon';
 $string['ew_no_data']                = '—';
 $string['ew_btn_sort_risk']          = 'Sort by Risk';
 $string['ew_btn_sort_name']          = 'Sort A–Z';
-// =============================================================================
+// ----------------------------------------------------------------------
 // LANG STRING ADDITIONS FOR v0.2.4
-// Append these lines to the END of lang/en/mtssdashboard.php
-// =============================================================================
+// Append these lines to the END of lang/en/mtssdashboard.php.
 
 // MTSS tab.
 $string['tab_rimp']                   = 'RIMP';
@@ -373,7 +372,7 @@ $string['rimp_saved_draft']            = 'RIMP saved as draft.';
 $string['rimp_finalized']              = 'RIMP has been finalized.';
 
 // RIMP finalized warning.
-$string['rimp_finalized_warning_title']= 'This RIMP is finalized.';
+$string['rimp_finalized_warning_title'] = 'This RIMP is finalized.';
 $string['rimp_finalized_warning_body'] = 'Any changes you save will revert it to Draft status until it is finalized again.';
 $string['rimp_finalized_edit_confirm'] = 'This RIMP is currently Finalized. Saving changes will revert it to Draft status. Do you want to continue?';
 $string['rimp_lock_title']             = 'This RIMP is being edited';
@@ -390,7 +389,7 @@ $string['rimp_section_frequency']      = 'Services and Supports';
 $string['rimp_section_monitoring']     = 'Plans for Monitoring Student Success';
 $string['rimp_section_grade3']         = "Ohio's Third Grade Reading Guarantee";
 $string['rimp_section_signatures']     = 'Signatures';
-$string['rimp_section_assessment_data']= 'Assessment Data';
+$string['rimp_section_assessment_data'] = 'Assessment Data';
 
 // RIMP form field labels.
 $string['rimp_schoolyear']             = 'School Year';
@@ -457,10 +456,9 @@ $string['invalidlockaction']           = 'Invalid lock action.';
 $string['edit_lock_unknown_user']      = 'another user';
 $string['rimp_not_found']              = 'No RIMP record found for this student.';
 $string['wep_not_found']               = 'No WEP record found for this student.';
-// =============================================================================
+// ----------------------------------------------------------------------
 // LANG STRING ADDITIONS FOR v0.2.4
-// Append these lines to the END of lang/en/mtssdashboard.php
-// =============================================================================
+// Append these lines to the END of lang/en/mtssdashboard.php.
 
 // MTSS tab.
 $string['tab_mtss']                    = 'MTSS';
@@ -496,7 +494,7 @@ $string['mtss_class_table_heading']    = 'Class RIMP Status';
 
 // Error strings.
 
-// ── Additional support options (v0.2.4 form update) ───────────────────────────
+// Additional support options (v0.2.4 form update).
 $string['rimp_sup_writing_found']    = 'Explicit Intervention in Writing (Foundational/Transcription)';
 $string['rimp_sup_writing_comp']     = 'Explicit Intervention in Writing (Composition Skills)';
 $string['rimp_sup_scaffolding']      = 'Small Group Scaffolding of Complex Text';
@@ -504,15 +502,15 @@ $string['rimp_sup_communication']    = 'Explicit Intervention in Communication/L
 $string['rimp_sup_multimodal']       = 'Multi-Modal Approach to Structured Literacy';
 $string['rimp_sup_other']            = 'Other';
 
-// ── Monitored by — Other option ───────────────────────────────────────────────
+// Monitored by — Other option.
 $string['rimp_monitored_other']      = 'Other';
 
-// ── MS monitoring assessment checkboxes ──────────────────────────────────────
+// MS monitoring assessment checkboxes.
 $string['rimp_mon_uflr']             = 'UFLR- after every two lessons';
 $string['rimp_mon_phonics']          = 'Phonics for Reading- a review at the end of each lesson and a check up at the end of each unit';
 $string['rimp_mon_rewards']          = 'Rewards- a review after every two lessons and a check up at the end of each unit';
 
-// ── Third Grade Guarantee — corrected options ─────────────────────────────────
+// Third Grade Guarantee — corrected options.
 $string['rimp_grade3_score700']      = 'The student reached the promotion score of 700 on the Ohio State Test for grade 3 English language arts.';
 $string['rimp_grade3_alternative']   = 'The student reached the promotion score on an approved alternative reading assessment given by the district.';
 $string['rimp_grade3_parentrequest'] = 'A parent/guardian, in consultation with the school, can request that their child be promoted to fourth grade even if they do not reach the promotion score. In this case, the student will continue to be supported with a RIMP and provided with intensive instruction, until they are able to read at grade level.';
@@ -522,9 +520,8 @@ $string['plans_col_status'] = 'Status';
 $string['plans_col_plan']   = 'Plan Date';
 $string['plans_no_plan']    = 'No Plan';
 
-// =============================================================================
-// WEP (Written Education Plan) strings — v0.2.5
-// =============================================================================
+// ----------------------------------------------------------------------
+// WEP (Written Education Plan) strings — v0.2.5.
 
 // Tab label.
 $string['tab_wep']                          = 'WEP';

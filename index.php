@@ -62,8 +62,10 @@ $instances = $DB->get_records_sql(
 );
 
 if (empty($instances)) {
-    notice(get_string('nostudentdata', 'mod_mtssdashboard'),
-        new moodle_url('/course/view.php', ['id' => $course->id]));
+    notice(
+        get_string('nostudentdata', 'mod_mtssdashboard'),
+        new moodle_url('/course/view.php', ['id' => $course->id])
+    );
 }
 
 // Build the table.

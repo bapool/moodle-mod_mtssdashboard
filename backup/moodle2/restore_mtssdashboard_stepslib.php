@@ -26,13 +26,10 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Defines all the restore steps for the mtssdashboard activity.
  */
 class restore_mtssdashboard_activity_structure_step extends restore_activity_structure_step {
-
     /**
      * Define the XML paths that this step processes.
      *

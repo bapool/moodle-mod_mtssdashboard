@@ -25,11 +25,11 @@
 require_once(__DIR__ . '/../../config.php');
 require_once($CFG->dirroot . '/mod/mtssdashboard/lib.php');
 
-// ── Parameters ────────────────────────────────────────────────────────────────
+// Parameters.
 $id            = required_param('id', PARAM_INT);
 $studentnumber = required_param('sn', PARAM_INT);
 
-// ── Bootstrap ─────────────────────────────────────────────────────────────────
+// Bootstrap.
 $cm      = get_coursemodule_from_id('mtssdashboard', $id, 0, false, MUST_EXIST);
 $course  = $DB->get_record('course', ['id' => $cm->course], '*', MUST_EXIST);
 $context = context_module::instance($cm->id);
@@ -40,13 +40,17 @@ require_sesskey();
 
 $redirecturl = new moodle_url('/mod/mtssdashboard/view.php', ['id' => $cm->id, 'tab' => 'wep']);
 
-// ── Delete ────────────────────────────────────────────────────────────────────
+// Delete.
 $wep = $DB->get_record_select('mtssdashboard_wep', 'studentnumber = :sn', ['sn' => $studentnumber]);
 if ($wep) {
     $DB->delete_records('mtssdashboard_wep', ['id' => $wep->id]);
     stv_release_edit_lock($studentnumber, 'wep', $USER->id);
-    redirect($redirecturl, get_string('wep_deleted', 'mod_mtssdashboard'), null,
-        \core\output\notification::NOTIFY_SUCCESS);
+    redirect(
+        $redirecturl,
+        get_string('wep_deleted', 'mod_mtssdashboard'),
+        null,
+        \core\output\notification::NOTIFY_SUCCESS
+    );
 }
 
 redirect($redirecturl);
