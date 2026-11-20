@@ -260,6 +260,9 @@ $string['lessonsoff_subject_math']  = 'Math lessons off';
 $string['lessonsoff_grade']         = 'Grade {$a}';
 $string['lessonsoff_none']          = 'None (all grades use lessons)';
 $string['lessonsoff_grades']        = 'Grade {$a}';
+$string['rimplessonsoff_heading']   = 'iReady Lessons for RIMP Students';
+$string['rimplessonsoff_desc']      = 'Check a grade if students in that grade who have a RIMP take iReady diagnostics but not iReady lessons in that subject. For those students, the "Days Since Lesson" column is left blank and does not count toward Overall Risk. Students without a RIMP and percentiles are not affected.';
+$string['rimplessonsoff_none']      = 'None (RIMP students in all grades use lessons)';
 $string['metric_ost_performance']        = 'OST Performance';
 $string['metric_ost_passing_score']      = 'ELA/Math passing score';
 $string['metric_ost_performance_es']     = 'Low OST Count';
@@ -319,7 +322,15 @@ $string['tab_rimp']                   = 'RIMP';
 $string['rimp_tab_intro']                  = 'Select a student to create or edit their Reading Improvement and Monitoring Plan (RIMP). The table below shows the current RIMP status for all enrolled students.';
 $string['rimp_select_student']         = 'Select a student';
 $string['mtss_select_student']         = 'Select a student';
+$string['school_name_es']              = 'National Trail Elementary School';
+$string['school_name_ms']              = 'National Trail Middle School';
+$string['school_name_hs']              = 'National Trail High School';
 $string['rimp_btn_go']                 = 'View';
+$string['rimp_btn_download']           = 'Download RIMPs';
+$string['rimp_btn_download_help']      = 'Open every finalized RIMP for the students currently shown (current group and filters) as one document to save as a PDF.';
+$string['rimp_bulk_title']             = 'RIMPs - {$a}';
+$string['rimp_bulk_count']             = '{$a->count} finalized RIMP(s). In the print window choose "Save as PDF".';
+$string['rimp_bulk_none']              = 'There are no finalized RIMPs for the students currently shown.';
 $string['rimp_class_table_heading']    = 'Class RIMP Status';
 
 // RIMP edit page.
@@ -523,6 +534,12 @@ $string['wep_tab_intro']                    = 'Select a student to create or edi
 $string['wep_class_table_heading']          = 'Class WEP Status';
 $string['wep_select_student']               = 'Select a student';
 $string['wep_btn_go']                       = 'View';
+$string['wep_btn_download']                 = 'Download WEPs';
+$string['wep_btn_download_help']            = 'Open every finalized WEP for the students currently shown (current group and filters) as one document to save as a PDF.';
+$string['wep_bulk_title']                   = 'WEPs - {$a}';
+$string['wep_bulk_count']                   = '{$a->count} finalized WEP(s). In the print window choose "Save as PDF".';
+$string['wep_bulk_none']                    = 'There are no finalized WEPs for the students currently shown.';
+$string['bulk_btn_print']                   = 'Print / Save as PDF';
 
 // WEP edit page — page title.
 $string['wep_edit_title']                   = 'WEP — Written Education Plan';

@@ -1,10 +1,63 @@
 # mod_mtssdashboard — My Student Data
-**Version:** 2026101500 (0.4.5)
+**Version:** 2026112000 (0.4.7)
 **Moodle:** 4.5.x
 **Author:** Brian Pool, National Trail Local Schools
 **License:** GNU GPL v3 or later
 
 ---
+
+## 0.4.7 changes
+
+- **iReady Lessons for RIMP Students toggle (MS)** — a second card on the
+  Warning Levels tab, beside "iReady Lessons by Grade". On the MS
+  management course, a manager clicks Edit thresholds and checks a grade
+  under Reading (ELA) and/or Math. Students in that grade **who have a
+  RIMP** get the same treatment as the grade toggle: "Days Since ELA/Math
+  Lesson" shows "—" and is not counted toward Overall Risk. Students
+  without a RIMP, and all percentile columns, are not affected.
+  - **Why:** some students with a RIMP take iReady diagnostics but not
+    iReady lessons in a subject, so they showed "Never" and picked up a
+    false risk flag, even though the rest of their grade does use lessons.
+  - "Has a RIMP" means any record in `mtssdashboard_rimp` (Draft or
+    Finalized), the same rule as the RIMP ✓ column on Early Warning.
+  - Applies to both the Early Warning table and Download CSV. If a grade is
+    checked on the "by Grade" card, it is off for every student in that
+    grade regardless of RIMP.
+  - Stored as plugin config `rimplessonsoff_ms_ela` /
+    `rimplessonsoff_ms_math` (comma list of grades, e.g. `7`). No database
+    table changes.
+
+## 0.4.6 changes
+
+- **Download RIMPs / Download WEPs** — a new button next to **View** on the
+  RIMP and WEP tabs opens every *finalized* RIMP/WEP for the students
+  currently shown — the selected group plus whatever demographic filters
+  were applied — as one document, one student after another, each starting
+  on a new page. The print window opens automatically; choose **Save as
+  PDF** to get a single file to upload to ParentSquare Secure Documents.
+  Draft records and students with no record are left out. Each report is
+  built by the same code as the single-student Print RIMP/Print WEP pages,
+  so the bulk file always matches what teachers see individually.
+- **Why:** so finalized plans can be sent to all families at once through
+  ParentSquare instead of being printed and mailed one by one.
+- **CTC and departed students hidden** — students with StudentStatus J or
+  NJ (career-tech center) or I or R (no longer attending) do not appear on
+  the RIMP or WEP tabs or in the downloads, because plans are not written
+  for them. To skip more codes, edit the `$skip` list in
+  `mtssdashboard_remove_skipped_students()` in `lib.php`.
+- **Correct school on printouts** — RIMPs and WEPs print the school for the
+  student's current grade (set by the HS/MS/ES grade ranges in plugin
+  settings) instead of the school in the old import file. The three school
+  names are language strings (`school_name_hs`, `school_name_ms`,
+  `school_name_es`) and can be edited there.
+- **WEP header** — Student ID, Date of Birth, Current Grade, Gender, School
+  Year and Review Date are now one left-aligned table that does not wrap.
+- **RIMP page breaks** — fixed a missing closing tag in the RIMP report so
+  each student starts on a new page in Download RIMPs.
+- **Fixes on the same tabs:** the RIMP tab's View button pointed to an old
+  tab name and did not show the selected student, and pressing View on
+  either tab dropped the applied filters. Both are fixed, so a download
+  after pressing View still uses the filters on screen.
 
 ## 0.4.5 changes
 
@@ -178,7 +231,7 @@ $CFG->dataroot/NTimports/plans/{studentnumber}.pdf
 | State Testing | All | All teachers | Current level proficiency doughnut charts + data table |
 | Subject History | All | All teachers | Year-over-year trend line charts |
 | History | HS, MS | All teachers | Previous school level test results |
-| Warning Levels | All | Managers only | Configure Early Warning thresholds per school level, plus (MS) which grades do not take iReady lessons |
+| Warning Levels | All | Managers only | Configure Early Warning thresholds per school level, plus (MS) which grades, and which grades for RIMP students, do not take iReady lessons |
 | RIMP | All | All teachers | Create and edit Ohio Reading Improvement and Monitoring Plans |
 | WEP | All | All teachers | Create and edit Written Education Plans for gifted students |
 | Plans | All | Managers only | Student plan status (IEP/504/Gifted) with sortable plan date links |
@@ -227,6 +280,10 @@ Improvement and Monitoring Plans for enrolled students.
 3. Fill in the form and click **Save as Draft** or **Save as Finalized**.
 4. Click **Print RIMP** to open the print-friendly report in a new tab.
 5. Click ✓ on the Early Warning tab to open the print-friendly report directly.
+6. To send RIMPs home in bulk, set the group and filters, click **Apply
+   Filters**, then click **Download RIMPs**. All finalized RIMPs for the
+   students shown open in one print window — choose **Save as PDF** and
+   upload the file to ParentSquare.
 
 ### ES vs MS/HS differences
 - ES: Phonemic Awareness goal, K-3 iReady benchmarks, Third Grade Reading Guarantee,
@@ -258,6 +315,10 @@ identified as gifted under Ohio Administrative Code 3301-51-15.
 4. Enter goals and progress notes grouped by subject.
 5. Click **Save as Draft** or **Save as Finalized**.
 6. Click **Print WEP** to open the print-friendly report in a new tab.
+7. To send WEPs home in bulk, set the group and filters, click **Apply
+   Filters**, then click **Download WEPs**. All finalized WEPs for the
+   students shown open in one print window — choose **Save as PDF** and
+   upload the file to ParentSquare.
 
 ### ES vs MS/HS differences
 - ES: Reading/Writing and Mathematics goals only. Service setting: Cluster Grouping

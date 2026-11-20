@@ -283,7 +283,8 @@ function mtssdashboard_get_enrolled_students_with_ssid($courseid) {
                    c.StudentFreeLunchStatus AS ed_flag,
                    c.Gifted AS gifted,
                    c.Status504 AS status504,
-                   c.IEP AS iep
+                   c.IEP AS iep,
+                   c.StudentStatus AS studentstatus
               FROM {user} u
               JOIN {user_enrolments} ue ON ue.userid = u.id
               JOIN {enrol} e ON e.id = ue.enrolid AND e.courseid = :courseid
@@ -304,6 +305,25 @@ function mtssdashboard_get_enrolled_students_with_ssid($courseid) {
         'courseid2' => $courseid,
     ]);
 }
+/**
+ * Remove students who should never appear on the RIMP or WEP tabs.
+ *
+ * RIMPs and WEPs are not written for students attending the career-tech
+ * center (StudentStatus J or NJ) or for students no longer attending the
+ * district (StudentStatus I or R), so those students are left out of the
+ * RIMP/WEP tables, student dropdowns, and Download RIMPs/Download WEPs.
+ *
+ * @param array $students Student rows from mtssdashboard_get_enrolled_students_with_ssid().
+ * @return array The same rows without the skipped statuses.
+ */
+function mtssdashboard_remove_skipped_students(array $students) {
+    $skip = ['J', 'NJ', 'I', 'R'];
+    return array_filter($students, function ($s) use ($skip) {
+        $status = strtoupper(trim((string) ($s->studentstatus ?? '')));
+        return !in_array($status, $skip, true);
+    });
+}
+
 /**
  * Get the school level settings from admin config.
  *
@@ -2266,12 +2286,18 @@ function stv_get_school_level_grades($schoollevel) {
  * comma-separated list of numeric grades (e.g. "7"). Set from the
  * "iReady Lessons by Grade" card on the Warning Levels tab.
  *
+ * When $rimponly is true, reads "rimplessonsoff_{schoollevel}_{subject}"
+ * instead: grades where students WITH A RIMP do not take iReady lessons.
+ * Set from the "iReady Lessons for RIMP Students" card.
+ *
  * @param string $schoollevel 'es', 'ms', or 'hs'.
  * @param string $subject     'ela' or 'math'.
+ * @param bool   $rimponly    True to read the RIMP-students setting.
  * @return array Map of [grade => grade] for quick isset() checks.
  */
-function stv_get_lessons_off_grades($schoollevel, $subject) {
-    $raw = (string) get_config('mod_mtssdashboard', 'lessonsoff_' . $schoollevel . '_' . $subject);
+function stv_get_lessons_off_grades($schoollevel, $subject, $rimponly = false) {
+    $prefix = $rimponly ? 'rimplessonsoff_' : 'lessonsoff_';
+    $raw = (string) get_config('mod_mtssdashboard', $prefix . $schoollevel . '_' . $subject);
     $grades = [];
     foreach (explode(',', $raw) as $g) {
         $g = trim($g);
@@ -2283,29 +2309,68 @@ function stv_get_lessons_off_grades($schoollevel, $subject) {
 }
 
 /**
- * Blank the "Days Since ELA/Math Lesson" metrics for a student whose grade
- * does not take iReady lessons in that subject. A NULL metric displays as
- * "—" and is skipped by the Overall Risk flag count.
+ * Blank the "Days Since ELA/Math Lesson" metrics for a student who does not
+ * take iReady lessons in that subject. A NULL metric displays as "—" and is
+ * skipped by the Overall Risk flag count.
+ *
+ * A subject is turned off when either:
+ *  - the student's grade is checked on the "iReady Lessons by Grade" card, or
+ *  - the student has a RIMP and the grade is checked on the
+ *    "iReady Lessons for RIMP Students" card.
  *
  * @param array  $metrics     Early Warning metrics for one student.
  * @param string $gradelevel  GradeLevelCode, e.g. '07'.
  * @param string $schoollevel 'es', 'ms', or 'hs'.
+ * @param bool   $hasrimp     True if the student has any RIMP record.
  * @return array The metrics with lesson-day values blanked where turned off.
  */
-function stv_apply_lessons_off(array $metrics, $gradelevel, $schoollevel) {
+function stv_apply_lessons_off(array $metrics, $gradelevel, $schoollevel, $hasrimp = false) {
     $grade = mtssdashboard_grade_to_int((string) $gradelevel);
     if ($grade === null) {
         return $metrics;
     }
     foreach (['ela' => 'iready_ela_days', 'math' => 'iready_math_days'] as $subject => $key) {
-        if (array_key_exists($key, $metrics)) {
-            $off = stv_get_lessons_off_grades($schoollevel, $subject);
-            if (isset($off[$grade])) {
+        if (!array_key_exists($key, $metrics)) {
+            continue;
+        }
+        $off = stv_get_lessons_off_grades($schoollevel, $subject);
+        if (isset($off[$grade])) {
+            $metrics[$key] = null;
+            continue;
+        }
+        if ($hasrimp) {
+            $rimpoff = stv_get_lessons_off_grades($schoollevel, $subject, true);
+            if (isset($rimpoff[$grade])) {
                 $metrics[$key] = null;
             }
         }
     }
     return $metrics;
+}
+
+/**
+ * Work out the school name to print on a RIMP or WEP from the student's
+ * CURRENT grade (contacts.GradeLevelCode), using the grade ranges in the
+ * plugin settings. The import tables hold the school from when the plan
+ * was imported, which goes stale once a student moves up a building.
+ *
+ * @param string $gradecode Current GradeLevelCode, e.g. '09', 'KG'.
+ * @param string $fallback  Name to use when the grade is unknown.
+ * @return string School name.
+ */
+function mtssdashboard_school_name_for_grade($gradecode, $fallback) {
+    $grade = mtssdashboard_grade_to_int((string) $gradecode);
+    if ($grade === null) {
+        return $fallback;
+    }
+    $levelcfg = mtssdashboard_get_level_config();
+    if ($grade >= $levelcfg->hs_min) {
+        return get_string('school_name_hs', 'mod_mtssdashboard');
+    }
+    if ($grade >= $levelcfg->ms_min) {
+        return get_string('school_name_ms', 'mod_mtssdashboard');
+    }
+    return get_string('school_name_es', 'mod_mtssdashboard');
 }
 
 /**
@@ -2384,8 +2449,10 @@ function mtssdashboard_render_rimp_report($studentnumber, $schoollevel) {
     if (!is_array($goals))    $goals    = [];
     if (!is_array($supports)) $supports = [];
 
-    $school_name = mtssdashboard_rimp_clean_school(
-        !empty($import->current_school) ? $import->current_school : 'National Trail Local Schools');
+    $school_name = mtssdashboard_school_name_for_grade(
+        $contact->gradelevel ?? '',
+        mtssdashboard_rimp_clean_school(
+            !empty($import->current_school) ? $import->current_school : 'National Trail Local Schools'));
 
     $current_grade = !empty($contact->gradelevel) ? $contact->gradelevel
         : (!empty($import->current_grade) ? $import->current_grade : '');
@@ -2637,6 +2704,7 @@ function mtssdashboard_render_rimp_report($studentnumber, $schoollevel) {
 
   <p style="font-size:10pt; margin:0.3em 0;"><br><strong>Intervention Plan Monitored By:</strong>
   <?php echo s($rimp->monitored_by ?? ''); ?></p>
+</div>
 
 <?php if ($schoollevel === 'es'): ?>
 <div class="section">
@@ -2824,8 +2892,10 @@ function mtssdashboard_render_wep_report($studentnumber, $schoollevel) {
     $show_science  = ($schoollevel !== 'es') && ($all_areas || $id_checked('science'));
     $show_ss       = ($schoollevel !== 'es') && ($all_areas || $id_checked('social_studies'));
 
-    $school_name = mtssdashboard_wep_clean_school(
-        !empty($import->current_school) ? $import->current_school : 'National Trail Local Schools');
+    $school_name = mtssdashboard_school_name_for_grade(
+        $contact->gradelevel ?? '',
+        mtssdashboard_wep_clean_school(
+            !empty($import->current_school) ? $import->current_school : 'National Trail Local Schools'));
 
     $current_grade = !empty($contact->gradelevel) ? $contact->gradelevel
         : (!empty($import->current_grade) ? $import->current_grade : '');
@@ -2916,8 +2986,10 @@ function mtssdashboard_render_wep_report($studentnumber, $schoollevel) {
                   font-weight: bold; font-size: 10pt;
                   background: <?php echo $status_bg; ?>; color: <?php echo $status_color; ?>; }
   .meta-table { width: 100%; border-collapse: collapse; margin-bottom: 0.5em; font-size: 10pt; }
-  .meta-table th { font-weight: bold; width: 22%; padding: 0.2em 0.4em; }
-  .meta-table td { padding: 0.2em 0.4em; }
+  .meta-table th { font-weight: bold; text-align: left; white-space: nowrap;
+                   padding: 0.2em 0.4em; vertical-align: top; }
+  .meta-table td { white-space: nowrap; padding: 0.2em 0.8em 0.2em 0.2em; vertical-align: top; }
+  .meta-table th.label-wrap { white-space: normal; width: 11em; }
   /* Sections */
   .section { border-top: 1.5px solid #000; margin-top: 0.7em; padding-top: 0.5em; }
   .section-title { font-weight: bold; font-size: 10.5pt; margin-bottom: 0.3em; }
@@ -2969,21 +3041,23 @@ function mtssdashboard_render_wep_report($studentnumber, $schoollevel) {
   <?php endif; ?>
 </div>
 
-<table class="meta-table">
-  <tr>
-    <th>Student ID</th>    <td><?php echo htmlspecialchars((string)$studentnumber, ENT_QUOTES, 'UTF-8'); ?></td>
-    <th>Date of Birth</th> <td><?php echo htmlspecialchars($birthdate, ENT_QUOTES, 'UTF-8'); ?></td>
-    <th>Current Grade</th> <td><?php echo htmlspecialchars((string)$current_grade, ENT_QUOTES, 'UTF-8'); ?></td>
-    <th>Gender</th>        <td><?php echo htmlspecialchars($gender_display, ENT_QUOTES, 'UTF-8'); ?></td>
-  </tr>
-</table>
-
 <table class="meta-table" style="margin-bottom:0.3em;">
   <tr>
-    <th><?php echo htmlspecialchars(get_string('wep_schoolyear', 'mod_mtssdashboard'), ENT_QUOTES, 'UTF-8'); ?></th>
+    <th class="label-wrap">Student ID</th>
+    <td><?php echo htmlspecialchars((string)$studentnumber, ENT_QUOTES, 'UTF-8'); ?></td>
+    <th>Date of Birth</th>
+    <td><?php echo htmlspecialchars($birthdate, ENT_QUOTES, 'UTF-8'); ?></td>
+    <th>Current Grade</th>
+    <td><?php echo htmlspecialchars((string)$current_grade, ENT_QUOTES, 'UTF-8'); ?></td>
+    <th>Gender</th>
+    <td><?php echo htmlspecialchars($gender_display, ENT_QUOTES, 'UTF-8'); ?></td>
+  </tr>
+  <tr>
+    <th class="label-wrap"><?php echo htmlspecialchars(get_string('wep_schoolyear', 'mod_mtssdashboard'), ENT_QUOTES, 'UTF-8'); ?></th>
     <td><?php echo htmlspecialchars($wep->schoolyear ?? '', ENT_QUOTES, 'UTF-8'); ?></td>
     <th><?php echo htmlspecialchars(get_string('wep_review_date', 'mod_mtssdashboard'), ENT_QUOTES, 'UTF-8'); ?></th>
     <td><?php echo htmlspecialchars($review_date_str, ENT_QUOTES, 'UTF-8'); ?></td>
+    <td colspan="4"></td>
   </tr>
 </table>
 
@@ -3581,4 +3655,94 @@ function stv_release_edit_lock($studentnumber, $recordtype, $userid) {
         'recordtype'    => $recordtype,
         'userid'        => $userid,
     ]);
+}
+
+/**
+ * Render many finalized RIMP or WEP reports as one print-ready HTML page.
+ *
+ * Each report is built by the existing single-student renderer
+ * (mtssdashboard_render_rimp_report() / mtssdashboard_render_wep_report())
+ * so the bulk output always matches the single-student printout. The
+ * renderer output is captured, its stylesheet is kept once, and each
+ * report body is placed in its own block that starts on a new printed
+ * page. The browser's print dialog opens on load so staff can choose
+ * "Save as PDF" and upload the single file to ParentSquare.
+ *
+ * Students whose report cannot be built (no user account, no record) are
+ * skipped silently so one bad record does not stop the whole batch.
+ *
+ * @param string $type           'rimp' or 'wep'.
+ * @param array  $studentnumbers Student numbers to include, in print order.
+ * @param string $schoollevel    'hs', 'ms', or 'es'.
+ * @param string $doctitle       Document title (browser default PDF file name).
+ * @return void
+ */
+function mtssdashboard_render_bulk_reports($type, array $studentnumbers, $schoollevel, $doctitle) {
+    $renderer = ($type === 'rimp') ? 'mtssdashboard_render_rimp_report'
+                                   : 'mtssdashboard_render_wep_report';
+
+    $style  = '';
+    $bodies = [];
+    foreach ($studentnumbers as $sn) {
+        ob_start();
+        try {
+            $renderer((int) $sn, $schoollevel);
+        } catch (moodle_exception $e) {
+            ob_end_clean();
+            continue;
+        }
+        $html = ob_get_clean();
+
+        if ($style === '' && preg_match('~<style>(.*?)</style>~s', $html, $m)) {
+            $style = $m[1];
+        }
+        if (preg_match('~<body>(.*)</body>~s', $html, $m)) {
+            // Drop the per-report Print buttons; the bulk page has its own.
+            $bodies[] = preg_replace('~<button class="print-btn"[^>]*>.*?</button>~s', '', $m[1]);
+        }
+    }
+
+    $count = count($bodies);
+    $a = (object) ['count' => $count];
+
+    header('Content-Type: text/html; charset=UTF-8');
+    echo '<!DOCTYPE html>' . "\n";
+    echo '<html lang="en">' . "\n";
+    echo '<head>' . "\n";
+    echo '<meta charset="UTF-8">' . "\n";
+    echo '<title>' . s($doctitle) . '</title>' . "\n";
+    echo '<style>' . $style . "\n";
+    echo '  .bulk-toolbar { text-align: center; margin: 0 auto 1.5em; }' . "\n";
+    echo '  .bulk-toolbar p { margin-bottom: 0.5em; font-size: 11pt; }' . "\n";
+    echo '  .bulk-report + .bulk-report { break-before: page; page-break-before: always; }' . "\n";
+    echo '  @media screen { .bulk-report + .bulk-report { border-top: 3px dashed #999;' .
+         ' margin-top: 2em; padding-top: 2em; } }' . "\n";
+    // Every report gets the same top space so the Student ID prints in the
+    // exact same spot on each student's first page (not just the first one).
+    echo '  @media print { .bulk-toolbar { display: none; } body { padding-top: 0; }' .
+         ' .bulk-report { padding-top: 0.5cm; } }' . "\n";
+    echo '</style>' . "\n";
+    echo '</head>' . "\n";
+    echo '<body>' . "\n";
+
+    echo '<div class="bulk-toolbar">';
+    if ($count === 0) {
+        echo '<p>' . s(get_string($type . '_bulk_none', 'mod_mtssdashboard')) . '</p>';
+    } else {
+        echo '<p>' . s(get_string($type . '_bulk_count', 'mod_mtssdashboard', $a)) . '</p>';
+        echo '<button class="print-btn" type="button" onclick="window.print()">' .
+             s(get_string('bulk_btn_print', 'mod_mtssdashboard')) . '</button>';
+    }
+    echo '</div>' . "\n";
+
+    foreach ($bodies as $body) {
+        echo '<div class="bulk-report">' . $body . '</div>' . "\n";
+    }
+
+    if ($count > 0) {
+        // Open the print dialog once every student photo has loaded.
+        echo '<script>window.addEventListener("load", function() { window.print(); });</script>' . "\n";
+    }
+    echo '</body>' . "\n";
+    echo '</html>' . "\n";
 }

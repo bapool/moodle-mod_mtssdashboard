@@ -118,15 +118,19 @@ if (optional_param('action', '', PARAM_ALPHANUMEXT) === 'savewarning'
         $DB->update_record('mtssdashboard_warning_levels', $update);
     }
 
-    // iReady Lessons by Grade toggles. Only processed when the card was on
-    // the submitted form (hidden marker), so an unchecked box means "lessons on".
-    if (optional_param('lessonsoff_present', 0, PARAM_BOOL)) {
-        $validgrades = stv_get_school_level_grades($schoollevel);
+    // iReady Lessons toggles: "by Grade" (lessonsoff_*) and "for RIMP Students"
+    // (rimplessonsoff_*). Each is only processed when its card was on the
+    // submitted form (hidden marker), so an unchecked box means "lessons on".
+    $validgrades = stv_get_school_level_grades($schoollevel);
+    foreach (['lessonsoff_', 'rimplessonsoff_'] as $prefix) {
+        if (!optional_param($prefix . 'present', 0, PARAM_BOOL)) {
+            continue;
+        }
         foreach (['ela', 'math'] as $subject) {
-            $picked = optional_param_array('lessonsoff_' . $subject, [], PARAM_INT);
+            $picked = optional_param_array($prefix . $subject, [], PARAM_INT);
             $keep   = array_values(array_intersect($validgrades, array_map('intval', $picked)));
             sort($keep);
-            set_config('lessonsoff_' . $schoollevel . '_' . $subject,
+            set_config($prefix . $schoollevel . '_' . $subject,
                 implode(',', $keep), 'mod_mtssdashboard');
         }
     }
@@ -710,6 +714,7 @@ if (optional_param('action', '', PARAM_ALPHANUMEXT) === 'downloadcsv'
     $iready_ela = stv_get_iready_ela_by_studentnumber($studentnumbers);
     $iready_mth = stv_get_iready_math_by_studentnumber($studentnumbers);
     $iready_days = ($schoollevel === 'ms') ? stv_get_iready_days_since_lesson($studentnumbers) : [];
+    $rimpdata   = stv_get_rimp_by_studentnumber($studentnumbers);
     if ($schoollevel === 'es') {
         $metrickeys = ['total_hours_missed','unexcused_hours_missed',
             'iready_ela_percentile','iready_math_percentile','ost_performance'];
@@ -743,8 +748,10 @@ if (optional_param('action', '', PARAM_ALPHANUMEXT) === 'downloadcsv'
             $row->metrics['total_hours_missed']=$attendance[$sn]->total_hours;
             $row->metrics['unexcused_hours_missed']=$attendance[$sn]->unexcused_hours;
         }
-        // Blank lesson-days for grades that don't take iReady lessons (Warning Levels toggle).
-        $row->metrics=stv_apply_lessons_off($row->metrics,$row->gradelevel,$schoollevel);
+        // Blank lesson-days for grades (or RIMP students in grades) that don't
+        // take iReady lessons (Warning Levels toggles).
+        $row->metrics=stv_apply_lessons_off($row->metrics,$row->gradelevel,$schoollevel,
+            !empty($rimpdata[$sn]));
         $rows[]=$row;
     }
     $ewsortcsv=optional_param('ewsort','name',PARAM_ALPHA);
@@ -798,6 +805,74 @@ if (optional_param('action', '', PARAM_ALPHANUMEXT) === 'downloadcsv'
         fputcsv($out,$csvrow);
     }
     fclose($out); exit;
+}
+
+// Bulk print handler: Download RIMPs / Download WEPs.
+// Builds one print-ready page holding every FINALIZED RIMP or WEP for the
+// students currently shown on the tab (current group + applied demographic
+// filters), so staff can Save as PDF and send them all through ParentSquare.
+$bulkaction = optional_param('action', '', PARAM_ALPHANUMEXT);
+$isbulkrimp = ($bulkaction === 'downloadrimps' && $tab === 'rimp');
+$isbulkwep = ($bulkaction === 'downloadweps' && $tab === 'wep');
+if ($isbulkrimp || $isbulkwep) {
+    require_sesskey();
+    $bulktype = $isbulkrimp ? 'rimp' : 'wep';
+    require_capability('mod/mtssdashboard:edit' . $bulktype, $context);
+
+    $bulkstudents = stv_filter_students(
+        $tabstudents,
+        $f_gender,
+        $f_race,
+        $f_ed,
+        $f_swd,
+        $f_el,
+        $f_504,
+        $f_iep,
+        $f_gifted
+    );
+    // Leave out CTC (J/NJ) and no-longer-attending (I/R) students.
+    $bulkstudents = mtssdashboard_remove_skipped_students($bulkstudents);
+    usort($bulkstudents, function ($a, $b) {
+        $lc = strcasecmp($a->lastname, $b->lastname);
+        return $lc !== 0 ? $lc : strcasecmp($a->firstname, $b->firstname);
+    });
+
+    $bulksnlist = [];
+    foreach ($bulkstudents as $s) {
+        if (!empty($s->idnumber)) {
+            $bulksnlist[] = (int) $s->idnumber;
+        }
+    }
+
+    // Keep only students whose record is finalized (status = 1), in name order.
+    $bulkfinal = [];
+    if (!empty($bulksnlist)) {
+        [$insql, $inparams] = $DB->get_in_or_equal($bulksnlist, SQL_PARAMS_NAMED);
+        $finalrecs = $DB->get_records_select(
+            'mtssdashboard_' . $bulktype,
+            "studentnumber $insql AND status = 1",
+            $inparams,
+            '',
+            'id, studentnumber'
+        );
+        foreach ($finalrecs as $r) {
+            $bulkfinal[(int) $r->studentnumber] = true;
+        }
+    }
+    $bulkprint = array_values(array_filter($bulksnlist, fn ($sn) => isset($bulkfinal[$sn])));
+
+    $bulktitle = get_string(
+        $bulktype . '_bulk_title',
+        'mod_mtssdashboard',
+        format_string($course->shortname, true, ['context' => $context])
+    );
+    mtssdashboard_render_bulk_reports(
+        $bulktype,
+        $bulkprint,
+        stv_get_school_level_for_course($course),
+        $bulktitle
+    );
+    exit;
 }
 
 echo $OUTPUT->header();
@@ -2985,9 +3060,11 @@ if ($tab === 'earlywarning') {
                 $row->metrics['unexcused_hours_missed'] = $attendance[$sn]->unexcused_hours;
             }
 
-            // Blank lesson-days for grades that don't take iReady lessons
-            // (set on the Warning Levels tab). Blank = "—" and not counted in risk.
-            $row->metrics = stv_apply_lessons_off($row->metrics, $row->gradelevel, $schoollevel);
+            // Blank lesson-days for grades that don't take iReady lessons, and
+            // for RIMP students in grades set on the "for RIMP Students" card
+            // (Warning Levels tab). Blank = "—" and not counted in risk.
+            $row->metrics = stv_apply_lessons_off($row->metrics, $row->gradelevel, $schoollevel,
+                !empty($rimpdata[$sn]));
 
             $rows[] = $row;
         }
@@ -3647,73 +3724,80 @@ if ($tab === 'warning') {
             echo html_writer::end_tag('div');
         }
 
-        // ── iReady Lessons by Grade card (MS only) ────────────────────────────
-        // Lets the management course turn off "Days Since Lesson" for grades
-        // that take iReady diagnostics but not iReady lessons.
+        // ── iReady Lessons cards (MS only) ────────────────────────────────────
+        // "by Grade": turn off "Days Since Lesson" for grades that take iReady
+        // diagnostics but not iReady lessons.
+        // "for RIMP Students": same, but only for students who have a RIMP.
         if ($schoollevel === 'ms') {
             $lessongrades   = stv_get_school_level_grades($schoollevel);
             $lessonsubjects = [
                 'ela'  => get_string('lessonsoff_subject_ela', 'mod_mtssdashboard'),
                 'math' => get_string('lessonsoff_subject_math', 'mod_mtssdashboard'),
             ];
+            $lessoncards = [
+                'lessonsoff_'     => false,
+                'rimplessonsoff_' => true,
+            ];
 
-            echo html_writer::start_tag('div', [
-                'class' => 'card stv-warning-card',
-                'style' => 'border:1px solid #dee2e6; border-radius:0.375rem; '
-                         . 'padding:1rem; background:#fff;',
-            ]);
-            echo html_writer::tag('h5', get_string('lessonsoff_heading', 'mod_mtssdashboard'), [
-                'style' => 'margin:0 0 0.75rem 0; font-weight:600;',
-            ]);
-            echo html_writer::tag('p', get_string('lessonsoff_desc', 'mod_mtssdashboard'),
-                ['style' => 'font-size:0.85em; color:#6c757d; margin-bottom:0.5rem;']);
-
-            if ($editmode) {
-                echo html_writer::empty_tag('input', [
-                    'type' => 'hidden', 'name' => 'lessonsoff_present', 'value' => 1,
+            foreach ($lessoncards as $prefix => $rimponly) {
+                echo html_writer::start_tag('div', [
+                    'class' => 'card stv-warning-card',
+                    'style' => 'border:1px solid #dee2e6; border-radius:0.375rem; '
+                             . 'padding:1rem; background:#fff;',
                 ]);
-            }
-
-            echo html_writer::start_tag('ul', [
-                'style' => 'list-style:none; padding:0; margin:0;',
-            ]);
-
-            foreach ($lessonsubjects as $subject => $subjectlabel) {
-                $off   = stv_get_lessons_off_grades($schoollevel, $subject);
-                $label = html_writer::tag('strong', s($subjectlabel) . ':', [
-                    'style' => 'margin-right:0.35em;',
+                echo html_writer::tag('h5', get_string($prefix . 'heading', 'mod_mtssdashboard'), [
+                    'style' => 'margin:0 0 0.75rem 0; font-weight:600;',
                 ]);
+                echo html_writer::tag('p', get_string($prefix . 'desc', 'mod_mtssdashboard'),
+                    ['style' => 'font-size:0.85em; color:#6c757d; margin-bottom:0.5rem;']);
 
                 if ($editmode) {
-                    $boxes = '';
-                    foreach ($lessongrades as $g) {
-                        $attrs = [
-                            'type'  => 'checkbox',
-                            'name'  => 'lessonsoff_' . $subject . '[]',
-                            'value' => $g,
-                            'style' => 'margin-right:0.25em;',
-                        ];
-                        if (isset($off[$g])) {
-                            $attrs['checked'] = 'checked';
-                        }
-                        $boxes .= html_writer::tag('label',
-                            html_writer::empty_tag('input', $attrs)
-                            . get_string('lessonsoff_grade', 'mod_mtssdashboard', $g),
-                            ['style' => 'margin-right:0.75em; font-weight:normal;']);
-                    }
-                    echo html_writer::tag('li', $label . html_writer::empty_tag('br') . $boxes,
-                        ['style' => 'padding:0.3rem 0;']);
-                } else {
-                    $text = empty($off)
-                        ? get_string('lessonsoff_none', 'mod_mtssdashboard')
-                        : get_string('lessonsoff_grades', 'mod_mtssdashboard', implode(', ', $off));
-                    echo html_writer::tag('li', $label . s($text),
-                        ['style' => 'padding:0.2rem 0;']);
+                    echo html_writer::empty_tag('input', [
+                        'type' => 'hidden', 'name' => $prefix . 'present', 'value' => 1,
+                    ]);
                 }
-            }
 
-            echo html_writer::end_tag('ul');
-            echo html_writer::end_tag('div');
+                echo html_writer::start_tag('ul', [
+                    'style' => 'list-style:none; padding:0; margin:0;',
+                ]);
+
+                foreach ($lessonsubjects as $subject => $subjectlabel) {
+                    $off   = stv_get_lessons_off_grades($schoollevel, $subject, $rimponly);
+                    $label = html_writer::tag('strong', s($subjectlabel) . ':', [
+                        'style' => 'margin-right:0.35em;',
+                    ]);
+
+                    if ($editmode) {
+                        $boxes = '';
+                        foreach ($lessongrades as $g) {
+                            $attrs = [
+                                'type'  => 'checkbox',
+                                'name'  => $prefix . $subject . '[]',
+                                'value' => $g,
+                                'style' => 'margin-right:0.25em;',
+                            ];
+                            if (isset($off[$g])) {
+                                $attrs['checked'] = 'checked';
+                            }
+                            $boxes .= html_writer::tag('label',
+                                html_writer::empty_tag('input', $attrs)
+                                . get_string('lessonsoff_grade', 'mod_mtssdashboard', $g),
+                                ['style' => 'margin-right:0.75em; font-weight:normal;']);
+                        }
+                        echo html_writer::tag('li', $label . html_writer::empty_tag('br') . $boxes,
+                            ['style' => 'padding:0.3rem 0;']);
+                    } else {
+                        $text = empty($off)
+                            ? get_string($prefix . 'none', 'mod_mtssdashboard')
+                            : get_string('lessonsoff_grades', 'mod_mtssdashboard', implode(', ', $off));
+                        echo html_writer::tag('li', $label . s($text),
+                            ['style' => 'padding:0.2rem 0;']);
+                    }
+                }
+
+                echo html_writer::end_tag('ul');
+                echo html_writer::end_tag('div');
+            }
         }
 
         // Save button when editing.
@@ -3822,6 +3906,8 @@ if ($tab === 'rimp' && has_capability('mod/mtssdashboard:editrimp', $context)) {
     // then apply the top demographic filters so the filter bar works here too.
     $mtssstudents = stv_filter_students($tabstudents, $f_gender, $f_race, $f_ed,
                                         $f_swd, $f_el, $f_504, $f_iep, $f_gifted);
+    // Leave out CTC (J/NJ) and no-longer-attending (I/R) students.
+    $mtssstudents = mtssdashboard_remove_skipped_students($mtssstudents);
     usort($mtssstudents, function($a, $b) {
         $lc = strcasecmp($a->lastname, $b->lastname);
         return $lc !== 0 ? $lc : strcasecmp($a->firstname, $b->firstname);
@@ -3852,7 +3938,7 @@ if ($tab === 'rimp' && has_capability('mod/mtssdashboard:editrimp', $context)) {
 
     // ── Student selector form ─────────────────────────────────────────────────
     $selectorurl = new moodle_url('/mod/mtssdashboard/view.php',
-        ['id' => $cm->id, 'tab' => 'mtss']);
+        ['id' => $cm->id, 'tab' => 'rimp']);
 
     echo html_writer::start_tag('form', [
         'method' => 'get',
@@ -3860,7 +3946,13 @@ if ($tab === 'rimp' && has_capability('mod/mtssdashboard:editrimp', $context)) {
         'class'  => 'form-inline mb-3',
     ]);
     echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'id',  'value' => $cm->id]);
-    echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'tab', 'value' => 'mtss']);
+    echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'tab', 'value' => 'rimp']);
+    // Keep the applied demographic filters when View is pressed.
+    foreach (['f_gender', 'f_race', 'f_ed', 'f_swd', 'f_el', 'f_504', 'f_iep', 'f_gifted'] as $fname) {
+        if ($$fname !== '') {
+            echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => $fname, 'value' => $$fname]);
+        }
+    }
 
     $stu_opts = [0 => '— ' . get_string('rimp_select_student', 'mod_mtssdashboard') . ' —'];
     foreach ($mtssstudents as $s) {
@@ -3876,6 +3968,17 @@ if ($tab === 'rimp' && has_capability('mod/mtssdashboard:editrimp', $context)) {
     echo html_writer::tag('button',
         get_string('rimp_btn_go', 'mod_mtssdashboard'),
         ['type' => 'submit', 'class' => 'btn btn-secondary']);
+    // Download RIMPs: every finalized RIMP for the students currently shown.
+    $rimpbulkurl = new moodle_url($PAGE->url, ['action' => 'downloadrimps', 'sesskey' => sesskey()]);
+    echo html_writer::link(
+        $rimpbulkurl,
+        get_string('rimp_btn_download', 'mod_mtssdashboard'),
+        [
+            'class' => 'btn btn-primary ml-2',
+            'target' => '_blank',
+            'title' => get_string('rimp_btn_download_help', 'mod_mtssdashboard'),
+        ]
+    );
     echo html_writer::end_tag('form');
 
     // ── Selected student action panel ─────────────────────────────────────────
@@ -4220,6 +4323,8 @@ if ($tab === 'wep' && has_capability('mod/mtssdashboard:editwep', $context)) {
     // then apply the top demographic filters so the filter bar works here too.
     $wepstudents = stv_filter_students($tabstudents, $f_gender, $f_race, $f_ed,
                                        $f_swd, $f_el, $f_504, $f_iep, $f_gifted);
+    // Leave out CTC (J/NJ) and no-longer-attending (I/R) students.
+    $wepstudents = mtssdashboard_remove_skipped_students($wepstudents);
     usort($wepstudents, function($a, $b) {
         $lc = strcasecmp($a->lastname, $b->lastname);
         return $lc !== 0 ? $lc : strcasecmp($a->firstname, $b->firstname);
@@ -4258,6 +4363,12 @@ if ($tab === 'wep' && has_capability('mod/mtssdashboard:editwep', $context)) {
     ]);
     echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'id',  'value' => $cm->id]);
     echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'tab', 'value' => 'wep']);
+    // Keep the applied demographic filters when View is pressed.
+    foreach (['f_gender', 'f_race', 'f_ed', 'f_swd', 'f_el', 'f_504', 'f_iep', 'f_gifted'] as $fname) {
+        if ($$fname !== '') {
+            echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => $fname, 'value' => $$fname]);
+        }
+    }
 
     $wep_stu_opts = [0 => '— ' . get_string('wep_select_student', 'mod_mtssdashboard') . ' —'];
     foreach ($wepstudents as $s) {
@@ -4273,6 +4384,17 @@ if ($tab === 'wep' && has_capability('mod/mtssdashboard:editwep', $context)) {
     echo html_writer::tag('button',
         get_string('wep_btn_go', 'mod_mtssdashboard'),
         ['type' => 'submit', 'class' => 'btn btn-secondary']);
+    // Download WEPs: every finalized WEP for the students currently shown.
+    $wepbulkurl = new moodle_url($PAGE->url, ['action' => 'downloadweps', 'sesskey' => sesskey()]);
+    echo html_writer::link(
+        $wepbulkurl,
+        get_string('wep_btn_download', 'mod_mtssdashboard'),
+        [
+            'class' => 'btn btn-primary ml-2',
+            'target' => '_blank',
+            'title' => get_string('wep_btn_download_help', 'mod_mtssdashboard'),
+        ]
+    );
     echo html_writer::end_tag('form');
 
     // ── Selected student action panel ─────────────────────────────────────────

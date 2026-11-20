@@ -1,3 +1,88 @@
+## [2026112000] — 2026-11-20 (v0.4.7)
+
+### Added
+- **iReady Lessons for RIMP Students** — new card on the MS Warning Levels
+  tab, next to "iReady Lessons by Grade". Managers check grades per subject
+  (Reading/ELA, Math); for students in a checked grade **who have a RIMP**,
+  "Days Since ELA/Math Lesson" is blanked ("—") and not counted toward
+  Overall Risk. Students without a RIMP and percentile columns are
+  unaffected. "Has a RIMP" = any `mtssdashboard_rimp` record (Draft or
+  Finalized), matching the Early Warning RIMP ✓ column.
+  - Stored as plugin config `rimplessonsoff_{level}_{subject}`
+    (e.g. `rimplessonsoff_ms_math` = `7`). No database changes.
+  - New language strings: `rimplessonsoff_heading`, `rimplessonsoff_desc`,
+    `rimplessonsoff_none`.
+
+### Changed
+- `lib.php`: `stv_get_lessons_off_grades()` takes an optional `$rimponly`
+  flag to read the RIMP setting; `stv_apply_lessons_off()` takes an
+  optional `$hasrimp` flag and blanks lesson days when either the grade
+  toggle or (for RIMP students) the RIMP toggle is on. Both default to the
+  old behaviour.
+- `view.php`: the Warning Levels save handler processes both cards (each
+  behind its own hidden `*_present` marker); the iReady Lessons card code
+  now loops to draw both cards; the Early Warning table and Download CSV
+  pass each student's RIMP status into `stv_apply_lessons_off()`. Download
+  CSV now loads RIMP data (`stv_get_rimp_by_studentnumber()`) for this.
+
+## [2026103001] — 2026-10-30 (v0.4.6)
+
+### Added
+- **Download RIMPs / Download WEPs** — new button beside **View** on the RIMP
+  and WEP tabs (`view.php`). Opens, in a new tab, one print-ready page with
+  every finalized (status = 1) RIMP or WEP for the students currently shown:
+  the active Moodle group plus the applied demographic filters. Students are
+  in last-name order and each report starts on a new printed page. The
+  browser print dialog opens on load so staff can Save as PDF and upload
+  one file to ParentSquare Secure Documents. Drafts and students without a
+  record are skipped.
+  - Handled in `view.php` as `action=downloadrimps` / `action=downloadweps`
+    (sesskey-protected, same pattern as the Early Warning CSV download),
+    gated by `mod/mtssdashboard:editrimp` / `mod/mtssdashboard:editwep`.
+  - New `lib.php` helper `mtssdashboard_render_bulk_reports()` reuses the
+    existing `mtssdashboard_render_rimp_report()` /
+    `mtssdashboard_render_wep_report()` output, so bulk and single-student
+    printouts always match. The shared renderers used by block_parentgrades
+    are unchanged.
+  - New language strings: `rimp_btn_download`, `rimp_btn_download_help`,
+    `rimp_bulk_title`, `rimp_bulk_count`, `rimp_bulk_none`,
+    `wep_btn_download`, `wep_btn_download_help`, `wep_bulk_title`,
+    `wep_bulk_count`, `wep_bulk_none`, `bulk_btn_print`.
+
+- **CTC and departed students hidden on RIMP/WEP tabs** — students whose
+  `msb_contacts.StudentStatus` is J or NJ (attending the career-tech center)
+  or I or R (no longer attending) are left out of the RIMP and WEP tables,
+  student dropdowns, and Download RIMPs/Download WEPs, since plans are not
+  written for them. Other tabs are unchanged.
+  - `mtssdashboard_get_enrolled_students_with_ssid()` now also returns
+    `studentstatus`.
+  - New `lib.php` helper `mtssdashboard_remove_skipped_students()`; the
+    skipped codes are the `$skip` list inside it.
+- **School name follows the current grade** — RIMP and WEP printouts now
+  show the school for the student's current grade (`GradeLevelCode` and the
+  plugin's HS/MS/ES grade ranges) instead of the school stored in the import
+  table, which went stale when a student moved up a building (9th graders
+  printed as Middle School). Falls back to the import value if the grade is
+  unknown. New helper `mtssdashboard_school_name_for_grade()` and language
+  strings `school_name_es`, `school_name_ms`, `school_name_hs`. Also applies
+  to the single-student Print pages and the block_parentgrades parent view.
+
+### Fixed
+- **WEP header layout** — the Student ID / Date of Birth / Current Grade /
+  Gender and School Year / Review Date rows are now one left-aligned table.
+  Values no longer wrap (Date of Birth wrapped in Chrome) and the labels
+  line up under each other.
+- **RIMP page breaks in Download RIMPs** — the RIMP report's "Plans for
+  Monitoring Student Success" section was missing its closing `</div>`, so
+  each student's RIMP was nested inside the previous one and never started
+  a new printed page. The section is now closed properly.
+- **RIMP tab View button** — the student selector form submitted
+  `tab=mtss` (an old tab name), so the selected student's panel never
+  appeared. It now submits `tab=rimp`.
+- **Filters kept on View** — the RIMP and WEP student selector forms now
+  carry the applied demographic filters, so pressing View no longer resets
+  them (and a following Download uses the same filtered list).
+
 ## [2026101500] — 2026-10-15 (v0.4.5)
 
 ### Added
