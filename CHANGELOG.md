@@ -28,6 +28,10 @@
   - `view.php`: trailing spaces removed inside the state-test proficiency
     SQL string (whitespace only); two commented-out "Proficiency legend"
     blocks removed (they were already disabled).
+  - `lang/en/mtssdashboard.php`: strings sorted alphabetically by key and
+    section comments removed, as required by the Moodle 4.4+ language-file
+    ordering check. Every string's text is unchanged (verified: all 496
+    keys and values identical).
 
 ### Removed
 - `backup/moodle2/backup_statetestview_activity_task.class.php`,

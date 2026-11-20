@@ -24,6 +24,9 @@
     same; block_parentgrades, which shares these renderers, is unaffected.
   - Comments, PHPDoc blocks, indentation and line lengths brought in line
     with the Moodle coding style.
+  - The language file is now sorted alphabetically by string key (a Moodle
+    4.4+ rule). New strings must be added in alphabetical order, with no
+    section comments, or the GitHub check will fail.
   - Removed dead files: the four `backup/moodle2/*statetestview*` files
     (left over from the old plugin name; never loaded) and
     `mtssdashboard_additions.php` (old language-string notes; never loaded).
